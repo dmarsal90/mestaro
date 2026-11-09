@@ -1,0 +1,108 @@
+# Mestaro development stack. Every PHP process uses the same image; each service bind-mounts its own code.
+x-php: &php
+  image: mestaro-php-dev:latest
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+    target: dev
+    args:
+      HOST_UID: ${HOST_UID:-1000}
+      HOST_GID: ${HOST_GID:-1000}
+  networks: [internal]
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+x-platform-env: &platform-env
+  APP_ENV: local
+  APP_KEY: ${PLATFORM_APP_KEY:?set PLATFORM_APP_KEY in .env}
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_DATABASE: mestaro_platform
+  DB_USERNAME: platform
+  DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?set PLATFORM_DB_PASSWORD in .env}
+  REDIS_HOST: redis
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  SESSION_DRIVER: redis
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: 1025
+
+services:
+  platform:
+    <<: *php
+    command: fpm
+    working_dir: /var/www/html
+    volumes:
+      - ./services/platform:/var/www/html
+      - ./packages:/var/www/packages
+    environment:
+      <<: *platform-env
+      RUN_MIGRATIONS: "true"
+    healthcheck:
+      test: [CMD, healthcheck]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  platform-worker:
+    <<: *php
+    command: worker
+    volumes:
+      - ./services/platform:/var/www/html
+      - ./packages:/var/www/packages
+    environment: *platform-env
+
+  gateway:
+    image: nginx:1.31.8-alpine
+    ports: ["${GATEWAY_PORT:-8100}:80"]
+    volumes:
+      - ./docker/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [platform]
+    networks: [internal, edge]
+
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?set PLATFORM_DB_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:8.10.2-alpine
+    command: [redis-server, --appendonly, "yes", --requirepass, "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [internal]
+
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    ports: ["${MAILPIT_PORT:-8125}:8025"]
+    networks: [internal, edge]
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  internal:
+    internal: true
+  edge:
