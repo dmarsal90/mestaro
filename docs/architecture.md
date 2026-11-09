@@ -136,7 +136,7 @@ Read models alimentados por eventos (CQRS); agregados precalculados por job; nun
 ## 13. Interfaces de administración
 
 - `platform`: panel **Filament** de superadmin (alta/estado de restaurantes, planes, usuarios).
-- Panel del restaurante: ver ADR-013 (decisión pendiente de confirmar).
+- Panel del restaurante: Filament en `catalog` (menú, mesas, QR) y app Vue de personal para el resto (ADR-013).
 
 ## 14. Estrategia de pruebas (TDD)
 
@@ -178,7 +178,6 @@ Servicios en compose: `gateway`, `platform`, `catalog`, `operations`, `billing` 
 
 ## 17. Puntos abiertos
 
-- ADR-013: alcance de Filament (panel del restaurante).
 - Horizon o `queue:work`; SPA única o varias entradas Vite (Fase 2).
 - Broker: Redis Streams por defecto; reevaluar RabbitMQ/Kafka si hace falta.
 - Pasarela de pago (Fase 6).

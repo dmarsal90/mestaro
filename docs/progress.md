@@ -17,6 +17,6 @@ Pendiente / para fases siguientes:
 - **Fase 3:** menús especiales / menú del día; destinos operativos configurables (¿tabla `destinations`?).
 - **Fase 6:** tabla `payment_items`, pasarela de pago concreta.
 - **Fase 7:** tablas de agregados de informes.
-- **Fase 2 crece:** varios servicios, shared-kernel, provisión de tenants, JWT/JWKS, bus de eventos y `docs/events.md`. Valorar partirla en 2a (esqueleto + Docker + CI + platform/tenancy) y 2b (resto de servicios).
-- **Confirmar:** ADR-012 (JWT en lugar de Sanctum entre servicios) y ADR-013 (alcance de Filament).
+- **Fase 2 crece:** varios servicios, shared-kernel, provisión de tenants, JWT/JWKS, bus de eventos y `docs/events.md`. **Partición confirmada:** 2a = esqueleto del monorepo, Docker, CI, shared-kernel, `platform` (auth, JWT/JWKS, registro y provisión de tenants, auditoría, tokens de diseño); 2b = esqueletos de `catalog`, `operations` y `billing` con resolución de tenant, bus de eventos, `docs/events.md`.
+- ADR-012 (JWT entre servicios) y ADR-013 (alcance de Filament) **confirmadas**.
 - `data-model.md` conserva menciones al `restaurant_id` del diseño anterior; se depuran al implementar.

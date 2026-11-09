@@ -56,9 +56,9 @@ Formato: contexto, opciones, decisión, consecuencias.
 ## ADR-012 — Autenticación entre servicios: JWT de vida corta emitido por `platform`
 - **Contexto:** los tokens personales de Sanctum solo se pueden validar consultando su base, que ahora es central. La spec nombra Sanctum.
 - **Decisión:** Sanctum se usa en `platform` para el login; `platform` emite JWT de acceso (firma asimétrica, JWKS interno) que los demás servicios verifican localmente. Los tokens de participante QR los emite y valida `operations`.
-- **Consecuencias:** desviación parcial de la spec (§3, §11.3); revocación vía refresh tokens y lista en Redis. Debe confirmarse en la Fase 2 antes de implementarse.
+- **Consecuencias:** desviación parcial de la spec (§3, §11.3); revocación vía refresh tokens y lista en Redis. **Confirmada por el desarrollador.**
 
-## ADR-013 — Alcance de Filament (PENDIENTE de confirmar)
+## ADR-013 — Alcance de Filament (confirmada)
 - **Contexto:** Filament trabaja sobre Eloquent y una BD local; con servicios y BD por tenant, un único panel no puede ver datos de todos.
-- **Propuesta:** Filament en `platform` (superadmin: restaurantes, usuarios, planes) y en `catalog` (menú, mesas, QR: el CRUD principal del restaurante). Pedidos, inventario, pagos e informes se gestionan desde la app Vue de personal contra las APIs de cada servicio.
+- **Decisión:** Filament en `platform` (superadmin: restaurantes, usuarios, planes) y en `catalog` (menú, mesas, QR: el CRUD principal del restaurante). Pedidos, inventario, pagos e informes se gestionan desde la app Vue de personal contra las APIs de cada servicio.
 - **Consecuencias:** desvío de la spec §8 (un panel Filament único con todo). Alternativa: un servicio `admin` (BFF) con Filament sobre las APIs, más lento y más código.
