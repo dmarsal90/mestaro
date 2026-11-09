@@ -4,6 +4,7 @@
 
 Hecho:
 - `architecture.md`, `data-model.md` (ER en Mermaid), `decisions.md` (ADR-001…009), borradores de `api.md`, `realtime.md` y `openapi.yaml`.
+- Revisión tras feedback: arquitectura cambiada a hexagonal + DDD con contextos extraíbles, TDD y tests de arquitectura (ADR-007, ADR-010).
 - Decisiones del desarrollador: Laravel 13 (desvío de la spec, que decía 12), Filament 5, todo en Docker reutilizando imágenes existentes.
 
 No verificado:

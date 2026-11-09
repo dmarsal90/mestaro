@@ -2,6 +2,8 @@
 
 Estado: Fase 1 (borrador). PostgreSQL 17. IDs internos `bigint`; identificador público `ulid` (columna `public_id`, único) — nunca se exponen los internos.
 
+Esquemas PostgreSQL por contexto (`platform`, `catalog`, `ordering`, `billing`, `inventory`, `reporting`, ver ADR-007): las FK existen **dentro** de un esquema; entre esquemas solo se guarda la referencia (`restaurant_id`, `table_id`, `product_id`… como `bigint` indexado, o `public_id`) sin FK. El diagrama de abajo muestra relaciones lógicas.
+
 Convenciones: `restaurant_id` NOT NULL en toda tabla de negocio con FK a `restaurants`; importes `bigint` en unidad mínima; timestamps `timestamptz` en UTC; enums como `varchar` + `CHECK`; soft deletes solo donde se indique. Relaciones entre tablas de negocio con FK compuesta `(restaurant_id, id)` (requiere `UNIQUE (restaurant_id, id)` en la tabla padre).
 
 ## Diagrama

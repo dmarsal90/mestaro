@@ -13,7 +13,7 @@ Estado: Fase 1 (borrador para aprobación). Fuente de verdad funcional: `docs/sp
 | Redis | 8.x | Caché, colas, rate limiting, Reverb escalado |
 | Tiempo real | Reverb + Echo | Detrás de `RealtimeClient` en el frontend |
 | Frontend | Vue 3 + Vite + TS + Pinia + Tailwind | SPA para cliente QR, KDS, camarero |
-| Tests / calidad | Pest, Larastan (nivel ≥6), Pint | CI en Fase 2 |
+| Tests / calidad | Pest (+arch plugin), Larastan (nivel ≥6), Pint | TDD; CI en Fase 2 |
 
 Versiones exactas de dependencias: se fijan y verifican en la Fase 2 contra Packagist antes de instalar.
 
@@ -35,47 +35,70 @@ Todo el desarrollo y los tests se ejecutan dentro de contenedores; no se instala
 
 Reglas: una sola imagen para todos los procesos PHP; usuario sin privilegios; sin secretos en la imagen ni en el repositorio (`.env.example` con valores vacíos); red interna para Postgres/Redis (solo `web` y `reverb` expuestos); puertos del host distintos de los de otros proyectos locales. Los Dockerfile, compose y comandos (`make`) se implementan en la **Fase 2**.
 
-## 3. Capas y estructura de carpetas
+## 3. Estilo arquitectónico: hexagonal + DDD, listo para extraer servicios
 
-Monolito modular. Cada módulo agrupa su dominio; la presentación (HTTP, Filament, broadcasting) queda fuera del dominio.
+Un solo despliegue inicial, pero con **bounded contexts aislados** de forma que cada uno pueda convertirse en un servicio independiente sin reescribirlo (ADR-007). Cada contexto es una arquitectura hexagonal: el dominio no conoce el framework; los adaptadores dependen del dominio, nunca al revés.
+
+### 3.1 Bounded contexts
+
+| Contexto | Responsabilidad | Agregados principales |
+|---|---|---|
+| `Platform` | restaurantes, ajustes, identidad, roles y permisos, auditoría | Restaurant, User, Role |
+| `Catalog` | zonas, mesas/QR, categorías, productos, variantes, complementos | Table, Product, Category |
+| `Ordering` | sesiones de mesa, participantes, pedidos, estados, llamadas | TableSession, Order, WaiterCall |
+| `Billing` | cuenta, división, pagos, pasarelas | Bill, Payment |
+| `Inventory` | existencias y movimientos | InventoryItem |
+| `Reporting` | modelos de lectura y métricas (solo consulta, CQRS) | — |
+| `Printing` | cola y drivers de impresión | PrintJob |
+
+Posible agrupación futura al extraer servicios: Platform+Catalog / Ordering / Billing+Inventory / Reporting.
+
+### 3.2 Estructura de cada contexto
 
 ```
-app/
-├── Domain/                 # Dominio + aplicación, por módulo
-│   ├── Restaurant/         #   Models/ Enums/ Actions/ DTOs/ Policies/ Events/ Listeners/ Jobs/
-│   ├── Identity/           # usuarios, roles, permisos, pertenencia a restaurantes
-│   ├── Floor/              # zonas, mesas, QR
-│   ├── Menu/               # categorías, productos, variantes, complementos, destinos
-│   ├── Ordering/           # sesiones de mesa, participantes, pedidos, estados
-│   ├── Service/            # llamadas al camarero, solicitudes de cuenta
-│   ├── Inventory/
-│   ├── Billing/            # cuentas, división, pagos, pasarelas
-│   ├── Reporting/          # métricas y agregados
-│   ├── Printing/           # contrato de impresión (ESC/POS futuro)
-│   └── Audit/
-├── Support/                # Tenancy (CurrentRestaurant, BelongsToRestaurant), Money, Idempotency
-├── Http/                   # Presentación API: Controllers/Api/V1, Requests, Resources, Middleware
-├── Filament/               # Panel administrativo (multi-tenant nativo)
-├── Broadcasting/           # Canales y eventos (broadcastAs estable)
-└── Providers/
-resources/js/               # Vue: apps cliente-QR, staff (KDS, camarero, POS)
-  └── realtime/             # RealtimeClient (interfaz) + EchoAdapter
-resources/brand/            # Logo y favicon (pendientes de aportar)
-docs/
+app/Contexts/<Contexto>/
+├── Domain/          # PHP puro: Entities/Aggregates, ValueObjects, Enums, DomainEvents,
+│                    #   Policies de negocio (state machine, pricing), interfaces de Repository
+├── Application/     # Casos de uso: Commands + Handlers (escritura), Queries + Handlers (lectura), DTOs, Ports
+├── Infrastructure/  # Adaptadores: Eloquent models/repositories, gateways, drivers, mappers, migraciones
+└── Interface/       # Http (Controllers, Requests, Resources), Filament, Broadcasting, Console
+app/Shared/          # Kernel compartido mínimo: Money, Ulid, Clock, TenantId, Outbox, EventBus
 ```
 
-Reglas de dependencia: `Http`/`Filament`/`Broadcasting` → `Domain` (nunca al revés); un módulo usa a otro solo a través de sus Actions, Enums o eventos públicos; la lógica de precios, impuestos y totales vive en un único servicio (`Domain/Billing` o `Support/Money`) usado por pedidos y cuenta.
+Reglas (verificadas por tests de arquitectura, ver §14):
+1. `Domain` no depende de `Illuminate\*`, `Eloquent`, `Http` ni `Filament` (solo de `Shared` puro).
+2. `Application` depende de `Domain` y define **puertos** (interfaces) que implementa `Infrastructure`.
+3. Un contexto **no** importa clases de otro. Se comunican por (a) eventos de integración publicados vía outbox y (b) una API pública del contexto (interfaz en su `Application/Contracts`) que devuelve DTOs.
+4. Sin claves foráneas entre contextos (ver §4). Se referencian por ULID.
+5. Controladores y recursos Filament solo despachan Commands/Queries.
 
-Convenciones: controladores delgados → Action de un solo propósito; Form Request por endpoint de escritura; Policy por modelo; Enums respaldados por string en snake_case; DTOs en la frontera Action; `DB::transaction` en operaciones críticas; eventos `ShouldDispatchAfterCommit`.
+### 3.3 Principios aplicados
+
+- **SRP:** un Handler por caso de uso; agregados pequeños.
+- **OCP/LSP:** variaciones (pasarelas, drivers de impresión, adaptadores de tiempo real) por interfaz + implementaciones intercambiables.
+- **ISP:** puertos pequeños (`OrderRepository`, `PaymentGateway`, `Clock`), no interfaces gordas.
+- **DIP:** el dominio y la aplicación declaran lo que necesitan; el contenedor de Laravel enlaza adaptadores en un ServiceProvider por contexto.
+- **Clean code:** nombres del lenguaje ubicuo del dominio, funciones cortas, sin comentarios que repitan el código, invariantes dentro del agregado.
+
+### 3.4 Agregados, VOs y eventos
+
+- Agregados con raíz explícita y límite transaccional: `Order` (+`OrderItem`), `TableSession` (+participantes), `Payment`, `InventoryItem`. Una transacción modifica un solo agregado; el resto se coordina por eventos.
+- Value objects inmutables: `Money`, `TaxRate`, `JoinCode`, `QrToken`, `Ulid`.
+- Eventos de dominio emitidos por el agregado; un *dispatcher* tras commit los publica. Los de interés para otros contextos se guardan en la tabla `outbox` en la misma transacción (**transactional outbox**) y un worker los publica en Redis Streams (consumidores idempotentes por `event_id`). Los eventos de tiempo real (`docs/realtime.md`) son un adaptador más sobre estos eventos.
+- Los modelos Eloquent viven en `Infrastructure` como persistencia del agregado, con mappers a las entidades de dominio donde la lógica lo justifique. Filament usa los modelos Eloquent de infraestructura vía Queries/Commands, no lógica propia.
+
+### 3.5 Sagas y consistencia
+
+Flujos que cruzan contextos son eventualmente consistentes: `OrderAccepted` (Ordering) → Inventory descuenta stock → si falla, evento compensatorio. El cierre de sesión consulta a Billing por su API pública. Cada paso es idempotente.
 
 ## 4. Multi-tenancy (BD compartida)
 
 - Toda tabla de negocio lleva `restaurant_id` (FK, `NOT NULL`) y todo índice de consulta empieza por él.
 - Trait `BelongsToRestaurant`: global scope `where restaurant_id = CurrentRestaurant::id()` y relleno automático en `creating`. Si no hay tenant activo y no se pidió saltarlo, el scope **falla cerrado** (excepción), no devuelve todo. Saltarse el scope (`withoutTenancy()`) exige una llamada explícita y comentada.
 - `CurrentRestaurant`: servicio con ámbito de petición. Lo rellena un middleware desde (a) usuario autenticado + restaurante seleccionado verificado en `restaurant_user`, o (b) la sesión de mesa del flujo QR. Nunca desde un ID enviado por el cliente sin comprobar pertenencia.
-- Integridad cruzada: FK compuestas `(restaurant_id, id)` en relaciones entre tablas de negocio para que la propia BD impida enlazar recursos de restaurantes distintos.
+- Integridad: dentro de un contexto, FK compuestas `(restaurant_id, id)` para que la BD impida enlazar recursos de restaurantes distintos. Entre contextos no hay FK (cada contexto tiene su esquema PostgreSQL: `platform`, `catalog`, `ordering`, `billing`, `inventory`, `reporting`); `restaurant_id` es columna indexada y las referencias entre contextos son ULID validados por la API pública del contexto dueño.
 - Jobs y listeners: trait `TenantAware` serializa `restaurant_id` y restaura el contexto antes de `handle()`.
-- Filament: `->tenant(Restaurant::class)` nativo; cada Resource verifica por Policy.
+- Filament: `->tenant(Restaurant::class)` nativo; cada Resource verifica por Policy y despacha Commands/Queries.
 - Rutas con binding: los modelos usan el scope también en route model binding, de modo que un ID ajeno devuelve 404 (no 403, para no confirmar existencia).
 - Archivos y exportaciones: ruta `restaurants/{restaurant_id}/…` en disco privado, descarga mediante controlador con Policy.
 - Futuro SaaS: tabla `plans/subscriptions` no se crea ahora; `Restaurant` expone un punto único (`Restaurant::limits()`) para consultar límites.
@@ -125,7 +148,7 @@ Interfaz `PrintDriver` + tabla de destinos de impresión por restaurante; los ti
 
 ## 12. Informes
 
-Consultas sobre las marcas de tiempo de 7.7. Para no bloquear la operación: índices `(restaurant_id, created_at)`, agregados diarios precalculados por job programado (`report_daily_*`, se justifican en Fase 7), y lecturas sin lock.
+Consultas sobre las marcas de tiempo de 7.7. Para no bloquear la operación: índices `(restaurant_id, created_at)`, agregados diarios precalculados por job programado (`report_daily_*`, se justifican en Fase 7). `Reporting` es un modelo de lectura alimentado por eventos de integración (CQRS), nunca consulta tablas de otros contextos, y lecturas sin lock.
 
 ## 13. Riesgos de seguridad principales
 
@@ -142,8 +165,24 @@ Consultas sobre las marcas de tiempo de 7.7. Para no bloquear la operación: ín
 | Dependencias vulnerables | `composer audit`, `npm audit` en CI | CI |
 | Escalada de privilegios | Policies + permisos granulares, separación global/restaurante | Rol bajo en endpoints admin |
 
-## 14. Asunciones abiertas
+## 14. Estrategia de pruebas (TDD)
+
+Ciclo obligatorio rojo → verde → refactor: el test falla antes de escribir el código, por Handler y por objeto de dominio.
+
+| Nivel | Qué | Cómo |
+|---|---|---|
+| Dominio | VOs, agregados, state machine, pricing, reparto de cuenta | Pest unit, sin framework ni BD; milisegundos |
+| Aplicación | Handlers con puertos falsos (in-memory) | Pest unit; verifica eventos emitidos |
+| Infraestructura | Repositorios, outbox, consumidores idempotentes | Pest feature contra PostgreSQL real en Docker |
+| Interfaz / flujos | Endpoints, flujos completos, seguridad y acceso cruzado entre tenants | Pest feature; comprueba también cambios en BD |
+| Contrato | Respuestas reales vs `docs/openapi.yaml` | Pest feature |
+| Arquitectura | Reglas de §3.2 | `pest-plugin-arch`: `Domain` no usa `Illuminate`/`Http`/`Filament`; un contexto no importa otro |
+
+Cada PR incluye los tests que lo motivan en el mismo cambio; CI exige Pest, Larastan ≥6, Pint y `composer audit`/`npm audit`.
+
+## 15. Asunciones abiertas
 
 - Cliente web QR y apps de personal: una SPA Vue con rutas por rol, o dos entradas Vite. Se decide en Fase 2.
 - Horizon frente a `queue:work`: se decide en Fase 2.
 - Pasarela de pago: Fase 6.
+- Broker del outbox: Redis Streams por defecto; reevaluar RabbitMQ/Kafka si se extraen servicios (ADR cuando ocurra).

@@ -21,7 +21,7 @@ Formato: contexto, opciones, decisión, consecuencias.
 
 ## ADR-004 — Multi-tenancy: BD compartida con `restaurant_id` y FK compuestas
 - **Decisión:** según spec §5. Añadido: scope que falla cerrado sin tenant y FK compuestas `(restaurant_id, id)` como defensa en profundidad en BD.
-- **Consecuencias:** migraciones algo más verbosas; cada tabla padre necesita `UNIQUE (restaurant_id, id)`. No se usa stancl/tenancy.
+- **Consecuencias:** migraciones algo más verbosas; cada tabla padre necesita `UNIQUE (restaurant_id, id)`. Las FK compuestas se aplican dentro de cada contexto; entre contextos (esquemas distintos) no hay FK, ver ADR-007. No se usa stancl/tenancy.
 
 ## ADR-005 — Identificadores públicos ULID
 - **Decisión:** `public_id` ULID en columna única; el `id` autoincremental nunca sale de la API. ULID es ordenable por tiempo y compatible con la réplica Java.
@@ -29,8 +29,11 @@ Formato: contexto, opciones, decisión, consecuencias.
 ## ADR-006 — Importes en enteros
 - **Decisión:** `bigint` en unidad mínima + ISO 4217 por restaurante; tipos impositivos en puntos básicos (`tax_bps`). Value object `Money`.
 
-## ADR-007 — Monolito modular por dominio
-- **Decisión:** `app/Domain/<Modulo>` con Actions/DTOs/Enums/Models/Policies; presentación en `Http`, `Filament`, `Broadcasting`. Sin paquetes de módulos ni DDD completo (complejidad innecesaria, spec §4).
+## ADR-007 — Arquitectura hexagonal + DDD en contextos listos para extraer (sustituye a "monolito modular")
+- **Contexto:** el desarrollador pidió SOLID, clean code, DDD y TDD, y descartó un monolito modular simple por escalabilidad y mantenibilidad futuras.
+- **Opciones:** (A) servicios gruesos desde el inicio (3 servicios, BD propia); (B) microservicios finos por módulo; (C) hexagonal + DDD con contextos aislados en un despliegue, extraíbles después.
+- **Decisión:** C. Bounded contexts con capas Domain/Application/Infrastructure/Interface, comunicación entre contextos solo por eventos (transactional outbox + Redis Streams) y API pública, esquema PostgreSQL por contexto y sin FK entre contextos.
+- **Consecuencias:** aislamiento real desde el día uno, a menor coste operativo que A/B. Es todavía un solo despliegue: la extracción a servicios será trabajo futuro, simplificado por las reglas de aislamiento, que verifican tests de arquitectura. El dominio queda libre de Laravel; los modelos Eloquent son infraestructura. Más código de mapeo y consistencia eventual entre contextos (sagas). Cambia la estructura de `app/` descrita en la v1 de este documento.
 
 ## ADR-008 — Docker como único entorno de ejecución
 - **Contexto:** el desarrollador ya dispone de imágenes de PHP, nginx, PostgreSQL, Redis y Mailpit.
@@ -39,3 +42,7 @@ Formato: contexto, opciones, decisión, consecuencias.
 
 ## ADR-009 — Credenciales: Sanctum para personal, token de participante para clientes QR
 - **Decisión:** el cliente QR no tiene cuenta. El `qr_token` identifica la mesa; la autorización la da una credencial de participante opaca (hash SHA-256 en BD) ligada a una sesión. El `join_code` solo se canjea una vez.
+
+## ADR-010 — TDD y tests de arquitectura obligatorios
+- **Decisión:** ciclo rojo-verde-refactor por Handler y objeto de dominio; pirámide de pruebas en `architecture.md` §14; `pest-plugin-arch` impone las reglas de dependencia entre capas y contextos en CI.
+- **Consecuencias:** más disciplina al inicio; la violación de una frontera rompe el build.
