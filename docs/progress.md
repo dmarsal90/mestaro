@@ -3,8 +3,8 @@
 ## Fase 1 — Análisis y arquitectura (completada, pendiente de aprobación)
 
 Hecho:
-- `architecture.md`, `data-model.md` (ER en Mermaid), `decisions.md` (ADR-001…009), borradores de `api.md`, `realtime.md` y `openapi.yaml`.
-- Revisión tras feedback: arquitectura cambiada a hexagonal + DDD con contextos extraíbles, TDD y tests de arquitectura (ADR-007, ADR-010).
+- `architecture.md`, `data-model.md` (ER en Mermaid), `decisions.md` (ADR-001…013), borradores de `api.md`, `realtime.md` y `openapi.yaml`.
+- Revisión tras feedback: servicios independientes (`platform`, `catalog`, `operations`, `billing`) con arquitectura hexagonal + DDD, TDD y tests de arquitectura; multi-tenancy con una BD por restaurante provisionada desde un admin (ADR-004, 007, 010, 011, 012, 013).
 - Decisiones del desarrollador: Laravel 13 (desvío de la spec, que decía 12), Filament 5, todo en Docker reutilizando imágenes existentes.
 
 No verificado:
@@ -17,3 +17,6 @@ Pendiente / para fases siguientes:
 - **Fase 3:** menús especiales / menú del día; destinos operativos configurables (¿tabla `destinations`?).
 - **Fase 6:** tabla `payment_items`, pasarela de pago concreta.
 - **Fase 7:** tablas de agregados de informes.
+- **Fase 2 crece:** varios servicios, shared-kernel, provisión de tenants, JWT/JWKS, bus de eventos y `docs/events.md`. Valorar partirla en 2a (esqueleto + Docker + CI + platform/tenancy) y 2b (resto de servicios).
+- **Confirmar:** ADR-012 (JWT en lugar de Sanctum entre servicios) y ADR-013 (alcance de Filament).
+- `data-model.md` conserva menciones al `restaurant_id` del diseño anterior; se depuran al implementar.

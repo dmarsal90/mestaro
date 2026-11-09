@@ -2,9 +2,9 @@
 
 Estado: Fase 1 (borrador). PostgreSQL 17. IDs internos `bigint`; identificador público `ulid` (columna `public_id`, único) — nunca se exponen los internos.
 
-Esquemas PostgreSQL por contexto (`platform`, `catalog`, `ordering`, `billing`, `inventory`, `reporting`, ver ADR-007): las FK existen **dentro** de un esquema; entre esquemas solo se guarda la referencia (`restaurant_id`, `table_id`, `product_id`… como `bigint` indexado, o `public_id`) sin FK. El diagrama de abajo muestra relaciones lógicas.
+**Cambio de arquitectura (ADR-004, ADR-007):** cada servicio tiene su propia BD, y los de negocio una BD por restaurante. Las tablas de abajo se reparten así: `platform` (central) = restaurants, restaurant_settings (se replica a los servicios), users, restaurant_user, roles, permissions, audit_logs de plataforma; `catalog` = zones, tables, categories, products, product_variants, product_addons; `operations` = table_sessions, table_session_participants, orders, order_items, order_item_addons, order_status_history, waiter_calls, idempotency_keys, outbox; `billing` = payments, payment_transactions, inventory_items, inventory_movements, outbox. Las tablas de tenant **no llevan `restaurant_id` ni FK compuestas**: el aislamiento es la propia BD. Entre servicios solo hay referencias por `public_id` (ULID), sin FK, apoyadas en proyecciones locales (p. ej. `catalog_products` en `operations`). Las referencias a `restaurant_id` en el texto de abajo son del diseño anterior y se retiran en la Fase 2; se conserva `tenant_id` en eventos, logs y tokens.
 
-Convenciones: `restaurant_id` NOT NULL en toda tabla de negocio con FK a `restaurants`; importes `bigint` en unidad mínima; timestamps `timestamptz` en UTC; enums como `varchar` + `CHECK`; soft deletes solo donde se indique. Relaciones entre tablas de negocio con FK compuesta `(restaurant_id, id)` (requiere `UNIQUE (restaurant_id, id)` en la tabla padre).
+Convenciones (revisadas): sin `restaurant_id` en tablas de tenant; importes `bigint` en unidad mínima; timestamps `timestamptz` en UTC; enums como `varchar` + `CHECK`; soft deletes solo donde se indique.
 
 ## Diagrama
 
@@ -113,7 +113,7 @@ erDiagram
 
 - `CHECK (total = subtotal + tax_total - discount_total)` y `CHECK (importes >= 0)` en `orders`, `order_items`, `payments`.
 - Una sola sesión abierta por mesa (índice parcial).
-- FK compuestas que impiden relacionar entidades de restaurantes distintos.
+- Aislamiento entre restaurantes por BD y rol propios (sustituye a las FK compuestas).
 - Transiciones de estado validadas en dominio; la BD solo restringe valores (`CHECK`).
 - Aplicación conecta con un rol sin privilegios de DDL.
 

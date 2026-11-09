@@ -20,14 +20,20 @@ Base: `/api/v1`. Contrato ejecutable: `docs/openapi.yaml` (OpenAPI 3.1). Este do
 - `Idempotency-Key` obligatorio en `POST /orders` y `POST /payments`. Misma clave + mismo cuerpo → misma respuesta; misma clave + cuerpo distinto → `409 IDEMPOTENCY_KEY_REUSED`.
 - Un recurso de otro restaurante responde `404`, no `403`.
 
+## Gateway y servicios
+
+Un único origen `/api/v1`; el gateway enruta por prefijo: `/auth`, `/admin`, `/restaurants`, `/users` → `platform`; `/zones`, `/tables`, `/categories`, `/products` → `catalog`; `/public`, `/session`, `/orders`, `/order-items`, `/waiter-calls`, `/kds` → `operations`; `/payments`, `/webhooks`, `/inventory` → `billing`. El contrato público es único (`openapi.yaml`); cada servicio publica su parte.
+
+Administración de plataforma (superadmin): `POST /admin/restaurants` (registra y provisiona; responde `202` con estado `provisioning`), `GET /admin/restaurants/{id}`, `POST /admin/restaurants/{id}/suspend`, `POST /admin/restaurants/{id}/retry-provisioning`.
+
 ## Autenticación
 
 | Tipo | Uso | Cabecera |
 |---|---|---|
-| Sanctum (token personal / SPA) | personal y administración | `Authorization: Bearer <token>` |
+| JWT emitido por `platform` (login con Sanctum, ver ADR-012) | personal y administración | `Authorization: Bearer <jwt>` |
 | Credencial de participante | cliente QR | `Authorization: Bearer <participant_token>` (abilities limitadas a su sesión) |
 
-El restaurante activo del personal se indica con `X-Restaurant: <restaurant_id>` y se valida contra su pertenencia; nunca basta por sí solo.
+El tenant sale del token; para personal con varios restaurantes, `X-Restaurant` selecciona uno que debe estar en las membresías del token. Nunca basta por sí solo.
 
 ## Endpoints (esqueleto)
 

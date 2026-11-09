@@ -1,6 +1,6 @@
 # Contrato de tiempo real (borrador Fase 1)
 
-Independiente de Laravel: la réplica Java debe poder emitir y consumir lo mismo (adaptador STOMP). Transporte actual: Laravel Reverb (protocolo Pusher).
+Independiente de Laravel: la réplica Java debe poder emitir y consumir lo mismo (adaptador STOMP). Transporte actual: Laravel Reverb (protocolo Pusher), alojado en el servicio `operations`. Los eventos de otros servicios llegan a `operations` por el bus de eventos y este los retransmite; `restaurant_id` en los payloads equivale a `tenant_id`.
 
 ## Reglas generales
 
