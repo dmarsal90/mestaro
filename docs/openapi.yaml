@@ -1,0 +1,95 @@
+openapi: 3.1.0
+info:
+  title: Mestaro API
+  version: 0.1.0
+  description: Borrador de la Fase 1. Define convenciones y esquemas comunes; los endpoints se completan por fase.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/me:
+    get:
+      summary: Usuario autenticado
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Ulid:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: integer
+          description: Unidad mínima de la moneda
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+    User:
+      type: object
+      required: [id, name, email]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        email: { type: string, format: email }
+    PageMeta:
+      type: object
+      required: [page, per_page, total, last_page]
+      properties:
+        page: { type: integer }
+        per_page: { type: integer, maximum: 100 }
+        total: { type: integer }
+        last_page: { type: integer }
+    PageLinks:
+      type: object
+      properties:
+        first: { type: [string, 'null'] }
+        last: { type: [string, 'null'] }
+        prev: { type: [string, 'null'] }
+        next: { type: [string, 'null'] }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128 }
