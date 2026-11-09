@@ -19,7 +19,7 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_USER: platform
-          POSTGRES_PASSWORD: ci-only
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: mestaro_platform_test
         ports: ['5432:5432']
         options: >-
@@ -28,9 +28,7 @@ jobs:
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
       DB_USERNAME: platform
-      DB_PASSWORD: ci-only
       DB_DATABASE: mestaro_platform_test
-      APP_KEY: base64:Y2ktb25seS1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY=
     steps:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@2.40.0
@@ -38,7 +36,9 @@ jobs:
           php-version: '8.4'
           extensions: pdo_pgsql, intl, bcmath, sodium
           coverage: none
-      - run: touch .env
+      - run: |
+          touch .env
+          echo "APP_KEY=base64:$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: composer audit
       - run: vendor/bin/pint --test
