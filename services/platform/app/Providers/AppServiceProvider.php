@@ -7,6 +7,7 @@ use App\Application\EventPublisher;
 use App\Domain\Tenancy\RestaurantRepository;
 use App\Infrastructure\Auth\JwtIssuer;
 use App\Infrastructure\Auth\JwtKeys;
+use App\Infrastructure\Auth\JwtVerifier;
 use App\Infrastructure\Messaging\OutboxEventPublisher;
 use App\Infrastructure\Tenancy\DatabaseRestaurantRepository;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(JwtKeys::class, fn () => new JwtKeys(
             config('jwt.private_key') ?: throw new RuntimeException('JWT_PRIVATE_KEY is not set.'),
+        ));
+        $this->app->bind(JwtVerifier::class, fn ($app) => new JwtVerifier(
+            $app->make(JwtKeys::class)->jwks(), config('jwt.issuer'), config('jwt.audience'),
         ));
         $this->app->bind(TokenIssuer::class, fn ($app) => new JwtIssuer(
             $app->make(JwtKeys::class), config('jwt.issuer'), config('jwt.audience'), config('jwt.ttl'),

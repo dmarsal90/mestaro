@@ -68,6 +68,7 @@ El detalle de parámetros, respuestas y permisos de cada endpoint se completa en
 | `IDEMPOTENCY_KEY_REUSED` | 409 | Misma clave con cuerpo distinto |
 | `CONFLICT_VERSION` | 409 | Recurso modificado por otra operación |
 | `INVALID_STATE_TRANSITION` | 409 | Transición no permitida |
+| `SLUG_TAKEN` | 409 | El slug del restaurante ya existe |
 | `ORDER_PRODUCT_UNAVAILABLE` | 422 | Producto agotado o fuera de horario |
 | `SESSION_CLOSED` | 409 | Sesión cerrada o expirada |
 | `SESSION_PENDING_APPROVAL` | 409 | Sesión a la espera del camarero |

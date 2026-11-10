@@ -28,4 +28,6 @@ Hecho (rama `feat/phase-2a-tenant-registry`): agregado `Restaurant` (estados pro
 
 Decisión: `packages/shared-kernel` se pospone hasta que un segundo servicio (2b) necesite código común; con un único consumidor sería una abstracción especulativa.
 
-Pendiente de 2a: endpoint `POST /admin/restaurants` (202), suspend y retry-provisioning (requieren auth, para no exponer administración sin proteger), login Sanctum + JWT/JWKS, relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
+Hecho: JWT Ed25519 + JWKS y `/api/v1/admin/restaurants` (POST 202, GET, suspend, retry-provisioning) protegido por middleware que exige JWT con rol `platform_admin` sin tenant. Aún no hay forma de obtener ese token fuera de tests.
+
+Pendiente de 2a: usuarios y login Sanctum que emita el JWT, relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
