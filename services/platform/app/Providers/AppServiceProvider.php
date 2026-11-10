@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Application\Audit\AuditTrail;
 use App\Application\Auth\TokenIssuer;
 use App\Application\EventPublisher;
 use App\Domain\Tenancy\RestaurantRepository;
+use App\Infrastructure\Audit\DatabaseAuditTrail;
 use App\Infrastructure\Auth\JwtIssuer;
 use App\Infrastructure\Auth\JwtKeys;
 use App\Infrastructure\Auth\JwtVerifier;
@@ -24,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(RestaurantRepository::class, DatabaseRestaurantRepository::class);
+        $this->app->bind(AuditTrail::class, DatabaseAuditTrail::class);
         $this->app->bind(EventPublisher::class, OutboxEventPublisher::class);
 
         $this->app->singleton(JwtKeys::class, fn () => new JwtKeys(

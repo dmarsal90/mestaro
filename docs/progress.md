@@ -34,4 +34,6 @@ Hecho: usuarios (`public_id`, `is_platform_admin`, `is_active`), login/refresh/l
 
 Hecho: relay del outbox (`php artisan outbox:relay`, servicio compose `platform-relay`): `XADD` al stream `mestaro.events` (campos `event_id`, `type`, `occurred_at`, `payload` JSON), entrega al menos una vez; los consumidores deben deduplicar por `event_id`. Un solo relay garantiza orden de `id`; con varios solo hay orden aproximado.
 
-Pendiente de 2a: auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
+Hecho: auditoría de plataforma (`audit_logs`, solo inserción reforzada con trigger de Postgres; puerto `AuditTrail`). Registra login, fallo de login, refresh, logout, alta/suspensión/reintento de restaurantes (en la misma transacción que el cambio) y accesos denegados (token inválido o 403). Los metadatos descartan claves tipo password/token. Sin auditar aún: respuestas 429 y peticiones sin token; sin política de retención ni alertas (el job de retención debe desactivar el trigger a propósito).
+
+Pendiente de 2a: tokens de diseño con test de contraste, marcador temporal de marca.

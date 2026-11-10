@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Auth;
 
+use App\Application\Audit\AuditTrail;
 use App\Application\Auth\AccessClaims;
 use App\Application\Auth\TokenIssuer;
 use App\Models\User;
@@ -19,7 +20,7 @@ final class PlatformSessions
 
     private static ?string $dummyHash = null;
 
-    public function __construct(private TokenIssuer $issuer) {}
+    public function __construct(private TokenIssuer $issuer, private AuditTrail $audit) {}
 
     /** @return array{access_token: string, token_type: string, expires_in: int, refresh_token: string}|null */
     public function login(string $email, #[\SensitiveParameter] string $password): ?array
@@ -29,7 +30,14 @@ final class PlatformSessions
         // Always hash-compare so an unknown email costs the same as a wrong password.
         $valid = Hash::check($password, $user->password ?? (self::$dummyHash ??= Hash::make(bin2hex(random_bytes(8)))));
 
-        return $valid && $user !== null && $this->canLogin($user) ? $this->issue($user) : null;
+        if (! $valid || $user === null || ! $this->canLogin($user)) {
+            $this->audit->record('auth.login_failed', $user?->public_id, metadata: ['email' => $email]);
+
+            return null;
+        }
+        $this->audit->record('auth.login', $user->public_id);
+
+        return $this->issue($user);
     }
 
     /** @return array{access_token: string, token_type: string, expires_in: int, refresh_token: string}|null */
@@ -40,13 +48,18 @@ final class PlatformSessions
 
         if ($token === null || ! $token->can(self::REFRESH) || $token->expires_at?->isPast()
             || ! $user instanceof User || ! $this->canLogin($user)) {
+            $this->audit->record('auth.refresh_failed', $user instanceof User ? $user->public_id : null);
+
             return null;
         }
 
         // Rotation: a refresh token works once; losing the delete race means it was already used.
         if ($token->newQuery()->whereKey($token->getKey())->delete() !== 1) {
+            $this->audit->record('auth.refresh_failed', $user->public_id, metadata: ['reason' => 'token_reused']);
+
             return null;
         }
+        $this->audit->record('auth.refresh', $user->public_id);
 
         return $this->issue($user);
     }
@@ -54,6 +67,7 @@ final class PlatformSessions
     public function revokeAll(User $user): void
     {
         $user->tokens()->delete();
+        $this->audit->record('auth.logout', $user->public_id);
     }
 
     private function canLogin(User $user): bool
