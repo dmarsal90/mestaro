@@ -158,3 +158,15 @@ it('uses the forwarded client address only from trusted proxies', function () {
 it('tolerates a non-string email in the rate limiter', function () {
     test()->postJson('/api/v1/auth/login', ['email' => ['a@b.c'], 'password' => 'x'])->assertStatus(422);
 });
+
+it('keeps only the newest refresh tokens per admin', function () {
+    $admin = adminUser();
+    $admin->save();
+
+    foreach (range(1, 12) as $_) {
+        $admin->tokens()->count(); // keep the model warm
+        test()->withServerVariables(['REMOTE_ADDR' => '198.51.100.'.random_int(1, 250)])->postJson('/api/v1/auth/login', ['email' => 'admin@example.com', 'password' => PASSWORD])->assertOk();
+    }
+
+    expect($admin->tokens()->count())->toBe(10);
+});
