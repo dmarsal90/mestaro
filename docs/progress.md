@@ -28,6 +28,8 @@ Hecho (rama `feat/phase-2a-tenant-registry`): agregado `Restaurant` (estados pro
 
 Decisión: `packages/shared-kernel` se pospone hasta que un segundo servicio (2b) necesite código común; con un único consumidor sería una abstracción especulativa.
 
-Hecho: JWT Ed25519 + JWKS y `/api/v1/admin/restaurants` (POST 202, GET, suspend, retry-provisioning) protegido por middleware que exige JWT con rol `platform_admin` sin tenant. Aún no hay forma de obtener ese token fuera de tests.
+Hecho: JWT Ed25519 + JWKS y `/api/v1/admin/restaurants` (POST 202, GET, suspend, retry-provisioning) protegido por middleware que exige JWT con rol `platform_admin` sin tenant. 
 
-Pendiente de 2a: usuarios y login Sanctum que emita el JWT, relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
+Hecho: usuarios (`public_id`, `is_platform_admin`, `is_active`), login/refresh/logout/me con Sanctum (refresh tokens rotatorios) emitiendo el JWT, comando `platform:create-admin`. Hash Argon2id vía `HASH_DRIVER` en compose. Solo admins de plataforma pueden iniciar sesión (personal de restaurante requiere membresías/roles, pendiente). Sin MFA ni denylist de JWT (atajos documentados en código).
+
+Pendiente de 2a: relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.

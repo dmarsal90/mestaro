@@ -10,6 +10,9 @@ use App\Infrastructure\Auth\JwtKeys;
 use App\Infrastructure\Auth\JwtVerifier;
 use App\Infrastructure\Messaging\OutboxEventPublisher;
 use App\Infrastructure\Tenancy\DatabaseRestaurantRepository;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -39,6 +42,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Per account+IP stops password guessing; the per-IP cap stops spraying many accounts.
+        RateLimiter::for('login', fn (Request $request) => [
+            Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip()),
+            Limit::perMinute(30)->by($request->ip()),
+        ]);
     }
 }
