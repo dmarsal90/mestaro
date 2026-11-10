@@ -47,7 +47,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Per account+IP stops password guessing; the per-IP cap stops spraying many accounts.
         RateLimiter::for('login', fn (Request $request) => [
-            Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip()),
+            Limit::perMinute(5)->by(strtolower(is_string($email = $request->input('email')) ? $email : '').'|'.$request->ip()),
             Limit::perMinute(30)->by($request->ip()),
         ]);
     }

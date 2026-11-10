@@ -3,6 +3,7 @@
 use App\Infrastructure\Auth\JwtKeys;
 use App\Models\User;
 use Firebase\JWT\JWT;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -128,4 +129,32 @@ it('creates a platform admin from the console and rejects weak passwords', funct
         ->and($boss->is_platform_admin)->toBeTrue()
         ->and(Hash::check(PASSWORD, $boss->password))->toBeTrue()
         ->and($boss->public_id)->toHaveLength(26);
+});
+
+it('does not let a client-supplied X-Forwarded-For pick its own rate-limit bucket', function () {
+    adminUser()->save();
+
+    foreach (range(1, 5) as $i) {
+        test()->postJson('/api/v1/auth/login', ['email' => 'admin@example.com', 'password' => 'wrong password!!'], ['X-Forwarded-For' => "203.0.113.$i"])->assertUnauthorized();
+    }
+
+    test()->postJson('/api/v1/auth/login', ['email' => 'admin@example.com', 'password' => 'wrong password!!'], ['X-Forwarded-For' => '203.0.113.99'])->assertStatus(429);
+});
+
+it('uses the forwarded client address only from trusted proxies', function () {
+    TrustProxies::at('*');
+    adminUser()->save();
+
+    foreach (range(1, 5) as $_) {
+        test()->postJson('/api/v1/auth/login', ['email' => 'admin@example.com', 'password' => 'wrong password!!'], ['X-Forwarded-For' => '203.0.113.1'])->assertUnauthorized();
+    }
+
+    // Same account, another client address: its own bucket, so not limited.
+    test()->postJson('/api/v1/auth/login', ['email' => 'admin@example.com', 'password' => 'wrong password!!'], ['X-Forwarded-For' => '203.0.113.2'])->assertUnauthorized();
+    test()->postJson('/api/v1/auth/login', ['email' => 'admin@example.com', 'password' => 'wrong password!!'], ['X-Forwarded-For' => '203.0.113.1'])->assertStatus(429);
+    TrustProxies::flushState();
+});
+
+it('tolerates a non-string email in the rate limiter', function () {
+    test()->postJson('/api/v1/auth/login', ['email' => ['a@b.c'], 'password' => 'x'])->assertStatus(422);
 });

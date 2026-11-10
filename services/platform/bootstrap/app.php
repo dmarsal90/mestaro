@@ -9,6 +9,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,7 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         then: fn () => Route::get('/.well-known/jwks.json', JwksController::class),
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Trust X-Forwarded-For only from TRUSTED_PROXIES (comma-separated IPs/CIDRs, or '*' when
+        // the app is reachable solely through the gateway). Unset means the socket peer is the client.
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES') ?: null, headers: Request::HEADER_X_FORWARDED_FOR);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(fn (ValidationException $e, Request $request) => $request->is('api/*')
@@ -29,6 +32,9 @@ return Application::configure(basePath: dirname(__DIR__))
             : null);
         $exceptions->render(fn (ThrottleRequestsException $e, Request $request) => $request->is('api/*')
             ? ApiError::response('RATE_LIMITED', 'Too many requests.', 429)->withHeaders($e->getHeaders())
+            : null);
+        $exceptions->render(fn (NotFoundHttpException $e, Request $request) => $request->is('api/*')
+            ? ApiError::response('NOT_FOUND', 'Resource not found.', 404)
             : null);
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
