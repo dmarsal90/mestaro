@@ -20,3 +20,12 @@ Pendiente / para fases siguientes:
 - **Fase 2 crece:** varios servicios, shared-kernel, provisión de tenants, JWT/JWKS, bus de eventos y `docs/events.md`. **Partición confirmada:** 2a = esqueleto del monorepo, Docker, CI, shared-kernel, `platform` (auth, JWT/JWKS, registro y provisión de tenants, auditoría, tokens de diseño); 2b = esqueletos de `catalog`, `operations` y `billing` con resolución de tenant, bus de eventos, `docs/events.md`.
 - ADR-012 (JWT entre servicios) y ADR-013 (alcance de Filament) **confirmadas**.
 - `data-model.md` conserva menciones al `restaurant_id` del diseño anterior; se depuran al implementar.
+
+## Fase 2a — avance
+
+Hecho (PR #4): stack Docker, esqueleto `platform` (Laravel 13), CI, tests de arquitectura.
+Hecho (rama `feat/phase-2a-tenant-registry`): agregado `Restaurant` (estados provisioning/active/provisioning_failed/suspended), caso de uso `RegisterRestaurant`, persistencia en PostgreSQL y outbox transaccional (`TenantRegistered`).
+
+Decisión: `packages/shared-kernel` se pospone hasta que un segundo servicio (2b) necesite código común; con un único consumidor sería una abstracción especulativa.
+
+Pendiente de 2a: endpoint `POST /admin/restaurants` (202), suspend y retry-provisioning (requieren auth, para no exponer administración sin proteger), login Sanctum + JWT/JWKS, relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
