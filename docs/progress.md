@@ -28,4 +28,12 @@ Hecho (rama `feat/phase-2a-tenant-registry`): agregado `Restaurant` (estados pro
 
 Decisión: `packages/shared-kernel` se pospone hasta que un segundo servicio (2b) necesite código común; con un único consumidor sería una abstracción especulativa.
 
-Pendiente de 2a: endpoint `POST /admin/restaurants` (202), suspend y retry-provisioning (requieren auth, para no exponer administración sin proteger), login Sanctum + JWT/JWKS, relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
+Hecho: JWT Ed25519 + JWKS y `/api/v1/admin/restaurants` (POST 202, GET, suspend, retry-provisioning) protegido por middleware que exige JWT con rol `platform_admin` sin tenant. 
+
+Hecho: usuarios (`public_id`, `is_platform_admin`, `is_active`), login/refresh/logout/me con Sanctum (refresh tokens rotatorios) emitiendo el JWT, comando `platform:create-admin`. Hash Argon2id vía `HASH_DRIVER` en compose. Solo admins de plataforma pueden iniciar sesión (personal de restaurante requiere membresías/roles, pendiente). Sin MFA ni denylist de JWT (atajos documentados en código).
+
+Hecho: relay del outbox (`php artisan outbox:relay`, servicio compose `platform-relay`): `XADD` al stream `mestaro.events` (campos `event_id`, `type`, `occurred_at`, `payload` JSON), entrega al menos una vez; los consumidores deben deduplicar por `event_id`. Un solo relay garantiza orden de `id`; con varios solo hay orden aproximado.
+
+Hecho: auditoría de plataforma (`audit_logs`, solo inserción reforzada con trigger de Postgres; puerto `AuditTrail`). Registra login, fallo de login, refresh, logout, alta/suspensión/reintento de restaurantes (en la misma transacción que el cambio) y accesos denegados (token inválido o 403). Los metadatos descartan claves tipo password/token. Sin auditar aún: respuestas 429 y peticiones sin token; sin política de retención ni alertas (el job de retención debe desactivar el trigger a propósito).
+
+Pendiente de 2a: tokens de diseño con test de contraste, marcador temporal de marca.

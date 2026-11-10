@@ -35,11 +35,13 @@ Administración de plataforma (superadmin): `POST /admin/restaurants` (registra 
 
 El tenant sale del token; para personal con varios restaurantes, `X-Restaurant` selecciona uno que debe estar en las membresías del token. Nunca basta por sí solo.
 
+Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, token_type, expires_in, refresh_token } }`. El JWT dura 10 min; el refresh token es un token de Sanctum (hasheado en BD, 30 días, un solo uso: cada `refresh` lo rota). `logout` revoca los refresh tokens del usuario; el JWT vigente caduca por su TTL. Cualquier fallo de credenciales responde el mismo `401 UNAUTHENTICATED`. Por ahora solo inician sesión los administradores de plataforma; el personal de restaurante llega con membresías y roles.
+
 ## Endpoints (esqueleto)
 
 | Grupo | Endpoints | Auth / permiso |
 |---|---|---|
-| Auth | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` | pública / token |
+| Auth | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` | login/refresh públicos con rate limit (5/min por cuenta+IP); logout/me con JWT |
 | Restaurantes | `GET /restaurants`, `GET/PATCH /restaurants/{id}` | `restaurant.manage` |
 | Usuarios | `GET/POST /users`, `GET/PATCH /users/{id}` | `users.manage` |
 | Zonas y mesas | `/zones`, `/tables`, `POST /tables/{id}/qr/rotate` | `floor.manage` |
@@ -68,6 +70,7 @@ El detalle de parámetros, respuestas y permisos de cada endpoint se completa en
 | `IDEMPOTENCY_KEY_REUSED` | 409 | Misma clave con cuerpo distinto |
 | `CONFLICT_VERSION` | 409 | Recurso modificado por otra operación |
 | `INVALID_STATE_TRANSITION` | 409 | Transición no permitida |
+| `SLUG_TAKEN` | 409 | El slug del restaurante ya existe |
 | `ORDER_PRODUCT_UNAVAILABLE` | 422 | Producto agotado o fuera de horario |
 | `SESSION_CLOSED` | 409 | Sesión cerrada o expirada |
 | `SESSION_PENDING_APPROVAL` | 409 | Sesión a la espera del camarero |

@@ -15,6 +15,7 @@ x-php: &php
 
 x-platform-env: &platform-env
   APP_ENV: local
+  HASH_DRIVER: argon2id
   APP_KEY: ${PLATFORM_APP_KEY:?set PLATFORM_APP_KEY in .env}
   JWT_PRIVATE_KEY: ${PLATFORM_JWT_PRIVATE_KEY:?set PLATFORM_JWT_PRIVATE_KEY in .env}
   DB_CONNECTION: pgsql
@@ -52,6 +53,15 @@ services:
   platform-worker:
     <<: *php
     command: worker
+    volumes:
+      - ./services/platform:/var/www/html
+      - ./packages:/var/www/packages
+    environment: *platform-env
+
+  platform-relay:
+    <<: *php
+    command: [php, artisan, outbox:relay]
+    restart: unless-stopped
     volumes:
       - ./services/platform:/var/www/html
       - ./packages:/var/www/packages
