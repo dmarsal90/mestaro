@@ -11,7 +11,7 @@ FROM mlocati/php-extension-installer:${EXTENSION_INSTALLER_VERSION} AS extension
 
 FROM php:${PHP_VERSION}-fpm-bookworm AS base
 COPY --from=extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions pdo_pgsql pgsql redis intl zip opcache pcntl bcmath gd exif sodium \
+RUN install-php-extensions pdo_pgsql pgsql redis intl zip opcache pcntl bcmath sodium \
     && apt-get update \
     && apt-get install -y --no-install-recommends curl procps unzip ca-certificates tzdata git \
     && rm -rf /var/lib/apt/lists/*
