@@ -24,17 +24,24 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U platform" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
       DB_USERNAME: platform
       DB_DATABASE: mestaro_platform_test
+      REDIS_HOST: 127.0.0.1
+      HASH_DRIVER: argon2id
     steps:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@2.40.0
         with:
           php-version: '8.4'
-          extensions: pdo_pgsql, intl, bcmath, sodium
+          extensions: pdo_pgsql, intl, bcmath, sodium, redis
           coverage: none
       - run: |
           touch .env
