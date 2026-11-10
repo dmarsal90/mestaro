@@ -58,6 +58,15 @@ services:
       - ./packages:/var/www/packages
     environment: *platform-env
 
+  platform-relay:
+    <<: *php
+    command: [php, artisan, outbox:relay]
+    restart: unless-stopped
+    volumes:
+      - ./services/platform:/var/www/html
+      - ./packages:/var/www/packages
+    environment: *platform-env
+
   gateway:
     image: nginx:1.31.8-alpine
     ports: ["${GATEWAY_PORT:-8100}:80"]

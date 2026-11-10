@@ -32,4 +32,6 @@ Hecho: JWT Ed25519 + JWKS y `/api/v1/admin/restaurants` (POST 202, GET, suspend,
 
 Hecho: usuarios (`public_id`, `is_platform_admin`, `is_active`), login/refresh/logout/me con Sanctum (refresh tokens rotatorios) emitiendo el JWT, comando `platform:create-admin`. Hash Argon2id vía `HASH_DRIVER` en compose. Solo admins de plataforma pueden iniciar sesión (personal de restaurante requiere membresías/roles, pendiente). Sin MFA ni denylist de JWT (atajos documentados en código).
 
-Pendiente de 2a: relay del outbox a Redis Streams, auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
+Hecho: relay del outbox (`php artisan outbox:relay`, servicio compose `platform-relay`): `XADD` al stream `mestaro.events` (campos `event_id`, `type`, `occurred_at`, `payload` JSON), entrega al menos una vez; los consumidores deben deduplicar por `event_id`. Un solo relay garantiza orden de `id`; con varios solo hay orden aproximado.
+
+Pendiente de 2a: auditoría, tokens de diseño con test de contraste, marcador temporal de marca.
