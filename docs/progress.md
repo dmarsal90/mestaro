@@ -36,4 +36,6 @@ Hecho: relay del outbox (`php artisan outbox:relay`, servicio compose `platform-
 
 Hecho: auditoría de plataforma (`audit_logs`, solo inserción reforzada con trigger de Postgres; puerto `AuditTrail`). Registra login, fallo de login, refresh, logout, alta/suspensión/reintento de restaurantes (en la misma transacción que el cambio) y accesos denegados (token inválido o 403). Los metadatos descartan claves tipo password/token. Sin auditar aún: respuestas 429 y peticiones sin token; sin política de retención ni alertas (el job de retención debe desactivar el trigger a propósito).
 
-Pendiente de 2a: tokens de diseño con test de contraste, marcador temporal de marca.
+Hecho: tokens de diseño en `services/platform/resources/css/tokens.css` con test de contraste WCAG AA (`DesignTokensTest`) y assets de marca en `resources/brand/`. Regla: `--titanium-muted` (4,1:1 sobre `--carbon-surface`) solo para iconos o sobre `--carbon`.
+
+Pendiente de 2a: nada de producto; falta pushear `fix/docker-drop-gd` (build de `platform-worker`). El tema Filament que consume los tokens llega cuando se instale Filament.

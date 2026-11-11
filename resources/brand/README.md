@@ -1,3 +1,6 @@
 # Recursos de marca
 
-Pendientes de aportar por el equipo. Nombres esperados: `mestaro-symbol.svg`, `mestaro-logo-dark.svg`, `mestaro-logo-light.svg`, `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png`, `android-chrome-192x192.png`, `android-chrome-512x512.png`.
+Símbolo (M dorada `#D6B36A`), logos para fondo oscuro/claro, favicon y app icons 180/192/512, tal como llegaron en `mestaro_brand_assets`. No se recolorean.
+Revisar el favicon a 16 px en el navegador destino antes de publicar.
+
+Los colores de interfaz viven en `services/platform/resources/css/tokens.css` (guía Forged Carbon / Titanium / Modena Yellow), no aquí.

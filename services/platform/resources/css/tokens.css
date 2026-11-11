@@ -1,0 +1,19 @@
+/* Single source of truth for brand colours (docs: Forged Carbon / Titanium Silver / Modena Yellow).
+   Semantic colours are independent of the brand palette. Contrast is enforced by tests/Unit/DesignTokensTest.php.
+   --titanium-muted is 4.1:1 on --carbon-surface (fails AA): use it for icons or on --carbon only; secondary text on cards uses --titanium. */
+:root {
+    --carbon-dark: #17191b;
+    --carbon: #202326;
+    --carbon-surface: #292d31;
+    --carbon-border: #393e43;
+    --titanium-muted: #858d95;
+    --titanium: #b8bdc3;
+    --titanium-light: #d9dde1;
+    --white: #ffffff;
+    --modena: #f2c300;
+    --modena-hover: #d9ae00;
+    --success: #4cc38a;
+    --warning: #f5a524;
+    --danger: #ff6b6b;
+    --info: #5aa9ff;
+}
