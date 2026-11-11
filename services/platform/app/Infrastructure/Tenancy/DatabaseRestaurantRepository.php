@@ -26,9 +26,10 @@ final class DatabaseRestaurantRepository implements RestaurantRepository
         ]], ['id'], ['status', 'failure_reason', 'updated_at']);
     }
 
-    public function find(string $id): ?Restaurant
+    public function find(string $id, bool $forUpdate = false): ?Restaurant
     {
-        $row = DB::table('restaurants')->where('id', $id)->first();
+        $query = DB::table('restaurants')->where('id', $id);
+        $row = ($forUpdate ? $query->lockForUpdate() : $query)->first();
 
         return $row === null ? null : Restaurant::reconstitute(
             $row->id,
