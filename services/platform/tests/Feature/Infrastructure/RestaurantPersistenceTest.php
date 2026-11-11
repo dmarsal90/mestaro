@@ -54,3 +54,15 @@ it('rejects a duplicated slug at database level', function () {
     expect(fn () => $repository->save(Restaurant::register('01JABCDEFGHJKMNPQRSTVWXYZ1', 'B', 'taberna')))
         ->toThrow(QueryException::class);
 });
+
+it('loads a restaurant with a row lock inside a transaction', function () {
+    $repository = app(RestaurantRepository::class);
+    $repository->save(Restaurant::register('01JABCDEFGHJKMNPQRSTVWXYZ0', 'La Taberna', 'taberna'));
+
+    DB::enableQueryLog();
+    $found = DB::transaction(fn () => $repository->find('01JABCDEFGHJKMNPQRSTVWXYZ0', forUpdate: true));
+    $sql = collect(DB::getQueryLog())->pluck('query')->implode(' ');
+
+    expect($found?->slug())->toBe('taberna')
+        ->and($sql)->toContain('for update');
+});

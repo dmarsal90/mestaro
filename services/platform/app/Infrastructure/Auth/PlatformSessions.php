@@ -18,6 +18,8 @@ final class PlatformSessions
 {
     private const REFRESH = 'refresh';
 
+    private const MAX_REFRESH_TOKENS = 10;
+
     private static ?string $dummyHash = null;
 
     public function __construct(private TokenIssuer $issuer, private AuditTrail $audit) {}
@@ -55,6 +57,7 @@ final class PlatformSessions
 
         // Rotation: a refresh token works once; losing the delete race means it was already used.
         if ($token->newQuery()->whereKey($token->getKey())->delete() !== 1) {
+            $user->tokens()->delete(); // two clients held the same token: treat the session as compromised
             $this->audit->record('auth.refresh_failed', $user->public_id, metadata: ['reason' => 'token_reused']);
 
             return null;
@@ -79,6 +82,8 @@ final class PlatformSessions
     private function issue(User $user): array
     {
         $refresh = $user->createToken(self::REFRESH, [self::REFRESH], now()->addSeconds(config('jwt.refresh_ttl')));
+        // A login flood cannot grow the table without bound: keep only the newest tokens.
+        $user->tokens()->whereNotIn('id', $user->tokens()->latest('id')->limit(self::MAX_REFRESH_TOKENS)->pluck('id'))->delete();
 
         return [
             'access_token' => $this->issuer->issue(new AccessClaims($user->public_id, null, 'platform_admin', [])),

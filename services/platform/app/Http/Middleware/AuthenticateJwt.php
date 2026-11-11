@@ -8,6 +8,7 @@ use App\Http\ApiError;
 use App\Infrastructure\Auth\JwtVerifier;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /** Verifies the Bearer JWT and exposes its claims as the `claims` request attribute. */
@@ -25,7 +26,7 @@ final class AuthenticateJwt
         try {
             $request->attributes->set('claims', $this->verifier->verify($token));
         } catch (InvalidToken) {
-            $this->audit->record('access.denied', metadata: ['reason' => 'invalid_token', 'method' => $request->method(), 'path' => $request->path()]);
+            $this->audit->record('access.denied', metadata: ['reason' => 'invalid_token', 'method' => $request->method(), 'path' => Str::limit($request->path(), 120, '')]);
 
             return ApiError::response('UNAUTHENTICATED', 'Invalid credentials.', 401);
         }

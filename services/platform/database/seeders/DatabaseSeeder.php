@@ -15,7 +15,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Known credentials: never outside local development.
+        if (! app()->environment('local')) {
+            return;
+        }
 
         User::factory()->create([
             'name' => 'Test User',

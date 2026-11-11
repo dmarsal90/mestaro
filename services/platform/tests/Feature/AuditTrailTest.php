@@ -50,7 +50,8 @@ it('audits the login lifecycle without storing credentials', function () {
 
 it('audits administrative actions with the acting admin, and denied access', function () {
     $keys = app(JwtKeys::class);
-    $issue = fn (string $role) => ['Authorization' => 'Bearer '.app(TokenIssuer::class)->issue(new AccessClaims('01HACTOR', null, $role, []))];
+    $actor = platformAdmin()->public_id;
+    $issue = fn (string $role) => ['Authorization' => 'Bearer '.app(TokenIssuer::class)->issue(new AccessClaims($actor, null, $role, []))];
 
     $id = $this->postJson('/api/v1/admin/restaurants', ['name' => 'La Brasa', 'slug' => 'labrasa'], $issue('platform_admin'))->json('data.id');
     $this->postJson("/api/v1/admin/restaurants/$id/suspend", [], $issue('platform_admin'))->assertStatus(409); // not active: not audited
@@ -59,5 +60,5 @@ it('audits administrative actions with the acting admin, and denied access', fun
 
     expect(auditActions())->toBe(['restaurant.registered', 'access.denied', 'access.denied']);
     $registered = DB::table('audit_logs')->where('action', 'restaurant.registered')->first();
-    expect($registered->actor_user_id)->toBe('01HACTOR')->and($registered->subject_id)->toBe($id);
+    expect($registered->actor_user_id)->toBe($actor)->and($registered->subject_id)->toBe($id);
 });

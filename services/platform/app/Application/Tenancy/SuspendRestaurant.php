@@ -12,7 +12,7 @@ final readonly class SuspendRestaurant
 
     public function __invoke(string $id): void
     {
-        $restaurant = $this->restaurants->find($id) ?? throw new RestaurantNotFound($id);
+        $restaurant = $this->restaurants->find($id, forUpdate: true) ?? throw new RestaurantNotFound($id);
         $restaurant->suspend();
         $this->restaurants->save($restaurant);
     }

@@ -17,7 +17,7 @@ final class InMemoryRestaurantRepository implements RestaurantRepository
         $this->items[$restaurant->id()] = $restaurant;
     }
 
-    public function find(string $id): ?Restaurant
+    public function find(string $id, bool $forUpdate = false): ?Restaurant
     {
         return $this->items[$id] ?? null;
     }

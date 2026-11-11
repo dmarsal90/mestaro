@@ -13,7 +13,7 @@ beforeEach(function () {
 
 function adminHeaders(string $role = 'platform_admin', ?string $tenant = null): array
 {
-    $token = app(TokenIssuer::class)->issue(new AccessClaims('u1', $tenant, $role, []));
+    $token = app(TokenIssuer::class)->issue(new AccessClaims($role === 'platform_admin' && $tenant === null ? platformAdmin()->public_id : 'u1', $tenant, $role, []));
 
     return ['Authorization' => "Bearer $token"];
 }
@@ -74,4 +74,33 @@ it('only suspends active restaurants and only retries failed provisioning', func
     $this->postJson("/api/v1/admin/restaurants/$id/suspend", [], adminHeaders())
         ->assertOk()->assertJsonPath('data.status', 'suspended');
     $this->postJson('/api/v1/admin/restaurants/nope/suspend', [], adminHeaders())->assertNotFound();
+});
+
+it('stops honouring a valid token once the admin is deactivated or demoted', function () {
+    $admin = platformAdmin();
+    $headers = fn () => ['Authorization' => 'Bearer '.app(TokenIssuer::class)->issue(new AccessClaims($admin->public_id, null, 'platform_admin', []))];
+
+    $this->postJson('/api/v1/admin/restaurants', ['name' => 'La Brasa', 'slug' => 'labrasa'], $headers())->assertStatus(202);
+
+    $admin->forceFill(['is_active' => false])->save();
+    $this->postJson('/api/v1/admin/restaurants', ['name' => 'Otro', 'slug' => 'otro'], $headers())->assertUnauthorized();
+
+    $admin->forceFill(['is_active' => true, 'is_platform_admin' => false])->save();
+    $this->postJson('/api/v1/admin/restaurants', ['name' => 'Otro', 'slug' => 'otro'], $headers())->assertUnauthorized();
+    expect(DB::table('restaurants')->count())->toBe(1);
+});
+
+it('answers 404 for ids that are not ULIDs', function () {
+    $this->getJson('/api/v1/admin/restaurants/not-a-ulid', adminHeaders())->assertNotFound();
+    $this->getJson('/api/v1/admin/restaurants/01JZZZZZZZZZZZZZZZZZZZZZZZ%00', adminHeaders())->assertNotFound()->assertJsonPath('error.code', 'NOT_FOUND');
+    $this->postJson('/api/v1/admin/restaurants/x/suspend', [], adminHeaders())->assertNotFound();
+});
+
+it('rate limits bad tokens before verifying them or writing audit rows', function () {
+    foreach (range(1, 60) as $_) {
+        $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer garbage'])->assertUnauthorized();
+    }
+
+    $this->getJson('/api/v1/auth/me', ['Authorization' => 'Bearer garbage'])->assertStatus(429);
+    expect(DB::table('audit_logs')->where('action', 'access.denied')->count())->toBe(60);
 });
