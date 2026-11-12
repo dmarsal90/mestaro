@@ -10,7 +10,7 @@ const TENANT_DB = 'tenant_01jabcdefghjkmnpqrstvwxyz0';
 
 afterEach(function () {
     $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
-    $db->statement('drop database if exists "'.TENANT_DB.'"');
+    $db->statement('drop database if exists "'.TENANT_DB.'" with (force)');
     $db->statement('drop role if exists "'.TENANT_DB.'"');
 });
 

@@ -20,7 +20,7 @@ beforeEach(function () {
 afterEach(function () {
     Redis::del(config('events.stream'));
     $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
-    $db->statement('drop database if exists "tenant_'.strtolower(CONSUMER_TENANT).'"');
+    $db->statement('drop database if exists "tenant_'.strtolower(CONSUMER_TENANT).'" with (force)');
     $db->statement('drop role if exists "tenant_'.strtolower(CONSUMER_TENANT).'"');
 });
 
