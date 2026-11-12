@@ -3,12 +3,12 @@
 namespace App\Http\Middleware;
 
 use App\Application\Audit\AuditTrail;
-use App\Application\Auth\InvalidToken;
-use App\Http\ApiError;
-use App\Infrastructure\Auth\JwtVerifier;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Mestaro\Kernel\Auth\InvalidToken;
+use Mestaro\Kernel\Auth\JwtVerifier;
+use Mestaro\Kernel\Http\ApiError;
 use Symfony\Component\HttpFoundation\Response;
 
 /** Verifies the Bearer JWT and exposes its claims as the `claims` request attribute. */

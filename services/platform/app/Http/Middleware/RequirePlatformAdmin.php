@@ -3,12 +3,12 @@
 namespace App\Http\Middleware;
 
 use App\Application\Audit\AuditTrail;
-use App\Application\Auth\AccessClaims;
-use App\Http\ApiError;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Mestaro\Kernel\Auth\AccessClaims;
+use Mestaro\Kernel\Http\ApiError;
 use Symfony\Component\HttpFoundation\Response;
 
 /** Runs after AuthenticateJwt. Platform administration is never tenant-scoped. */

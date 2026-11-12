@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 use App\Application\EventPublisher;
-use App\Application\Tenancy\TenantDatabaseCreator;
 use App\Domain\Tenancy\Restaurant;
 use App\Domain\Tenancy\RestaurantRepository;
 use App\Domain\Tenancy\RestaurantStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
+use Mestaro\Kernel\Tenancy\TenantDatabaseCreator;
 
 const CONSUMER_TENANT = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 
@@ -20,8 +20,8 @@ beforeEach(function () {
 afterEach(function () {
     Redis::del(config('events.stream'));
     $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
-    $db->statement('drop database if exists "tenant_'.strtolower(CONSUMER_TENANT).'" with (force)');
-    $db->statement('drop role if exists "tenant_'.strtolower(CONSUMER_TENANT).'"');
+    $db->statement('drop database if exists "tenant_'.strtolower(CONSUMER_TENANT).'_platform" with (force)');
+    $db->statement('drop role if exists "tenant_'.strtolower(CONSUMER_TENANT).'_platform"');
 });
 
 function registerAndRelay(string $id = CONSUMER_TENANT): void
@@ -43,7 +43,7 @@ it('provisions the tenant database, activates the restaurant and acknowledges th
     $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
 
     expect(app(RestaurantRepository::class)->find(CONSUMER_TENANT)?->status())->toBe(RestaurantStatus::Active)
-        ->and(DB::selectOne('select count(*) as n from pg_database where datname = ?', ['tenant_'.strtolower(CONSUMER_TENANT)])->n)->toBe(1)
+        ->and(DB::selectOne('select count(*) as n from pg_database where datname = ?', ['tenant_'.strtolower(CONSUMER_TENANT).'_platform'])->n)->toBe(1)
         ->and(pendingCount())->toBe(0);
 });
 
@@ -84,7 +84,7 @@ it('drops events for unknown restaurants and ignores other event types', functio
 it('marks provisioning failed with a safe reason when the database cannot be created', function () {
     $this->app->bind(TenantDatabaseCreator::class, fn () => new class implements TenantDatabaseCreator
     {
-        public function create(string $tenantId, string $password): void
+        public function create(string $tenantId, string $service, string $password): void
         {
             throw new RuntimeException('password authentication failed for user "secret"');
         }

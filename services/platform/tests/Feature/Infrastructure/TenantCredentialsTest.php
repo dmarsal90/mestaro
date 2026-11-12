@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-use App\Application\Tenancy\TenantCredentials;
-use App\Application\Tenancy\TenantDatabaseCreator;
 use App\Domain\Tenancy\Restaurant;
 use App\Domain\Tenancy\RestaurantRepository;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
+use Mestaro\Kernel\Tenancy\TenantCredentials;
+use Mestaro\Kernel\Tenancy\TenantDatabaseCreator;
 
 const TENANT_A = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 const TENANT_B = '01JABCDEFGHJKMNPQRSTVWXYZ1';
 
 function tenantName(string $id): string
 {
-    return 'tenant_'.strtolower($id);
+    return 'tenant_'.strtolower($id).'_platform';
 }
 
 function connectAs(string $user, string $password, string $database): Connection
@@ -56,8 +56,8 @@ it('keeps one stable password per tenant and service, stored encrypted', functio
 
 it('lets the tenant role log in to its own database and keeps other tenants out', function () {
     $creator = app(TenantDatabaseCreator::class);
-    $creator->create(TENANT_A, 'password-of-a');
-    $creator->create(TENANT_B, 'password-of-b');
+    $creator->create(TENANT_A, 'platform', 'password-of-a');
+    $creator->create(TENANT_B, 'platform', 'password-of-b');
 
     $own = connectAs(tenantName(TENANT_A), 'password-of-a', tenantName(TENANT_A));
     $own->statement('create table t (id int)');
@@ -69,8 +69,8 @@ it('lets the tenant role log in to its own database and keeps other tenants out'
 it('stores a password with quotes and SQL literally', function () {
     $password = "new-pass'word\"; drop role x; --";
     $creator = app(TenantDatabaseCreator::class);
-    $creator->create(TENANT_A, 'old-password');
-    $creator->create(TENANT_A, $password);
+    $creator->create(TENANT_A, 'platform', 'old-password');
+    $creator->create(TENANT_A, 'platform', $password);
 
     expect(connectAs(tenantName(TENANT_A), $password, tenantName(TENANT_A))->selectOne('select 1 as ok')->ok)->toBe(1);
 });
@@ -80,8 +80,8 @@ it('rejects a wrong or replaced password', function () {
         $this->markTestSkipped('PostgreSQL runs with trust auth.');
     }
     $creator = app(TenantDatabaseCreator::class);
-    $creator->create(TENANT_A, 'old-password');
-    $creator->create(TENANT_A, 'new-password');
+    $creator->create(TENANT_A, 'platform', 'old-password');
+    $creator->create(TENANT_A, 'platform', 'new-password');
 
     expect(fn () => connectAs(tenantName(TENANT_A), 'old-password', tenantName(TENANT_A))->selectOne('select 1'))->toThrow(PDOException::class)
         ->and(fn () => connectAs(tenantName(TENANT_A), 'wrong', tenantName(TENANT_A))->selectOne('select 1'))->toThrow(PDOException::class)

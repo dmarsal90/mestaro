@@ -5,6 +5,7 @@ use App\Infrastructure\Messaging\OutboxEventPublisher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
+use Mestaro\Kernel\Messaging\Outbox;
 
 beforeEach(function () {
     // Own stream per test so the shared dev Redis is never polluted.
@@ -14,7 +15,7 @@ beforeEach(function () {
 afterEach(fn () => Redis::del(config('events.stream')));
 
 it('publishes pending outbox rows to the stream once and marks them published', function () {
-    (new OutboxEventPublisher)->publish(new TenantRegistered('01HTENANT', 'labrasa'), new TenantRegistered('01HOTHER', 'otro'));
+    (new OutboxEventPublisher(new Outbox))->publish(new TenantRegistered('01HTENANT', 'labrasa'), new TenantRegistered('01HOTHER', 'otro'));
 
     $this->artisan('outbox:relay', ['--once' => true, '--batch' => 1])->assertSuccessful();
 
@@ -29,7 +30,7 @@ it('publishes pending outbox rows to the stream once and marks them published', 
 });
 
 it('leaves rows pending when Redis fails so they are retried', function () {
-    (new OutboxEventPublisher)->publish(new TenantRegistered('01HTENANT', 'labrasa'));
+    (new OutboxEventPublisher(new Outbox))->publish(new TenantRegistered('01HTENANT', 'labrasa'));
     Redis::set(config('events.stream'), 'not a stream'); // XADD now fails with WRONGTYPE
 
     expect(fn () => $this->artisan('outbox:relay', ['--once' => true])->run())->toThrow(RuntimeException::class, 'XADD failed');

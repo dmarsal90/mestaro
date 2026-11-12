@@ -6,13 +6,14 @@ namespace App\Infrastructure\Messaging;
 
 use App\Application\EventPublisher;
 use App\Domain\Tenancy\TenantRegistered;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Mestaro\Kernel\Messaging\Outbox;
 
-/** Persists events in the caller's transaction; a relay (later slice) moves them to Redis Streams. */
-final class OutboxEventPublisher implements EventPublisher
+/** Maps domain events to the outbox, in the caller's transaction; the relay moves them to Redis Streams. */
+final readonly class OutboxEventPublisher implements EventPublisher
 {
+    public function __construct(private Outbox $outbox) {}
+
     public function publish(object ...$events): void
     {
         foreach ($events as $event) {
@@ -21,12 +22,7 @@ final class OutboxEventPublisher implements EventPublisher
                 default => throw new InvalidArgumentException('Unmapped event '.$event::class),
             };
 
-            DB::table('outbox')->insert([
-                'event_id' => (string) Str::ulid(),
-                'type' => $type,
-                'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
-                'occurred_at' => now(),
-            ]);
+            $this->outbox->record($type, $payload);
         }
     }
 }

@@ -1,12 +1,12 @@
 <?php
 
-use App\Application\Auth\AccessClaims;
-use App\Application\Auth\InvalidToken;
 use App\Infrastructure\Auth\JwtIssuer;
 use App\Infrastructure\Auth\JwtKeys;
-use App\Infrastructure\Auth\JwtVerifier;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
+use Mestaro\Kernel\Auth\AccessClaims;
+use Mestaro\Kernel\Auth\InvalidToken;
+use Mestaro\Kernel\Auth\JwtVerifier;
 
 function newKeys(): JwtKeys
 {

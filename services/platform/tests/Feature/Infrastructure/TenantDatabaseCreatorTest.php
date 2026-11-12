@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Application\Tenancy\TenantDatabaseCreator;
 use Illuminate\Support\Facades\DB;
+use Mestaro\Kernel\Tenancy\TenantDatabaseCreator;
 
 const TENANT_ID = '01JABCDEFGHJKMNPQRSTVWXYZ0';
-const TENANT_DB = 'tenant_01jabcdefghjkmnpqrstvwxyz0';
+const TENANT_DB = 'tenant_01jabcdefghjkmnpqrstvwxyz0_platform';
 
 afterEach(function () {
     $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
@@ -17,14 +17,14 @@ afterEach(function () {
 it('creates the tenant role and database, and a second run is a no-op', function () {
     $creator = app(TenantDatabaseCreator::class);
 
-    $creator->create(TENANT_ID, 'pw-one');
-    $creator->create(TENANT_ID, 'pw-one');
+    $creator->create(TENANT_ID, 'platform', 'pw-one');
+    $creator->create(TENANT_ID, 'platform', 'pw-one');
 
     expect(DB::selectOne('select count(*) as n from pg_database where datname = ?', [TENANT_DB])->n)->toBe(1)
         ->and(DB::selectOne('select pg_get_userbyid(datdba) as owner from pg_database where datname = ?', [TENANT_DB])->owner)->toBe(TENANT_DB);
 });
 
 it('refuses ids that are not a ULID', function (string $id) {
-    app(TenantDatabaseCreator::class)->create($id, 'pw');
+    app(TenantDatabaseCreator::class)->create($id, 'platform', 'pw');
 })->with(['', 'taberna', '01JABCDEFGHJKMNPQRSTVWXYZ', '01JABCDEFGHJKMNPQRSTVWXYZ0"; drop database x; --', '../../etc/passwdxxxxxxxxxx', '01jabcdefghjkmnpqrstvwxyz0'])
     ->throws(InvalidArgumentException::class);

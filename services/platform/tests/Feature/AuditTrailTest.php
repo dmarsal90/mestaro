@@ -1,13 +1,13 @@
 <?php
 
 use App\Application\Audit\AuditTrail;
-use App\Application\Auth\AccessClaims;
 use App\Application\Auth\TokenIssuer;
 use App\Infrastructure\Auth\JwtKeys;
 use App\Models\User;
 use Firebase\JWT\JWT;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Mestaro\Kernel\Auth\AccessClaims;
 
 beforeEach(function () {
     config(['jwt.private_key' => JWT::urlsafeB64Encode(sodium_crypto_sign_secretkey(sodium_crypto_sign_keypair()))]);
