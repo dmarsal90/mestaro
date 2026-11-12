@@ -69,6 +69,15 @@ services:
       - ./packages:/var/www/packages
     environment: *platform-env
 
+  platform-consumer:
+    <<: *php
+    command: [php, artisan, events:consume]
+    restart: unless-stopped
+    volumes:
+      - ./services/platform:/var/www/html
+      - ./packages:/var/www/packages
+    environment: *platform-env
+
   gateway:
     image: nginx:1.31.8-alpine
     ports: ["${GATEWAY_PORT:-8100}:80"]
