@@ -84,7 +84,7 @@ it('drops events for unknown restaurants and ignores other event types', functio
 it('marks provisioning failed with a safe reason when the database cannot be created', function () {
     $this->app->bind(TenantDatabaseCreator::class, fn () => new class implements TenantDatabaseCreator
     {
-        public function create(string $tenantId): void
+        public function create(string $tenantId, string $password): void
         {
             throw new RuntimeException('password authentication failed for user "secret"');
         }

@@ -6,6 +6,7 @@ use App\Application\Audit\AuditTrail;
 use App\Application\Auth\TokenIssuer;
 use App\Application\EventPublisher;
 use App\Application\Tenancy\RecordProvisioningResult;
+use App\Application\Tenancy\TenantCredentials;
 use App\Application\Tenancy\TenantDatabaseCreator;
 use App\Domain\Tenancy\RestaurantRepository;
 use App\Infrastructure\Audit\DatabaseAuditTrail;
@@ -14,6 +15,7 @@ use App\Infrastructure\Auth\JwtKeys;
 use App\Infrastructure\Auth\JwtVerifier;
 use App\Infrastructure\Messaging\OutboxEventPublisher;
 use App\Infrastructure\Tenancy\DatabaseRestaurantRepository;
+use App\Infrastructure\Tenancy\DatabaseTenantCredentials;
 use App\Infrastructure\Tenancy\PostgresTenantDatabaseCreator;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AuditTrail::class, DatabaseAuditTrail::class);
         $this->app->bind(EventPublisher::class, OutboxEventPublisher::class);
         $this->app->bind(TenantDatabaseCreator::class, PostgresTenantDatabaseCreator::class);
+        $this->app->bind(TenantCredentials::class, DatabaseTenantCredentials::class);
         $this->app->when(RecordProvisioningResult::class)->needs('$expected')->giveConfig('tenancy.services');
 
         $this->app->singleton(JwtKeys::class, fn () => new JwtKeys(
