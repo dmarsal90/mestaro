@@ -9,21 +9,26 @@ permissions:
   contents: read
 
 jobs:
-  platform:
+  service:
+    name: ${{ matrix.service }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [platform, catalog]
     defaults:
       run:
-        working-directory: services/platform
+        working-directory: services/${{ matrix.service }}
     services:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: platform
+          POSTGRES_USER: ${{ matrix.service }}
           POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_DB: mestaro_platform_test
+          POSTGRES_DB: mestaro_${{ matrix.service }}_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U platform" --health-interval 5s --health-timeout 3s --health-retries 10
+          --health-cmd "pg_isready -U ${{ matrix.service }}" --health-interval 5s --health-timeout 3s --health-retries 10
       redis:
         image: redis:8-alpine
         ports: ['6379:6379']
@@ -32,8 +37,8 @@ jobs:
     env:
       DB_HOST: 127.0.0.1
       DB_PORT: 5432
-      DB_USERNAME: platform
-      DB_DATABASE: mestaro_platform_test
+      DB_USERNAME: ${{ matrix.service }}
+      DB_DATABASE: mestaro_${{ matrix.service }}_test
       REDIS_HOST: 127.0.0.1
       HASH_DRIVER: argon2id
     steps:
@@ -48,6 +53,6 @@ jobs:
           echo "APP_KEY=base64:$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: composer audit
-      - run: vendor/bin/pint --test
+      - run: vendor/bin/pint --test . ../../packages/shared-kernel
       - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
       - run: vendor/bin/pest
