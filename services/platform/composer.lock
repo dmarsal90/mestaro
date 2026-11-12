@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ce0bff44ededdb7ab4fd3a5d40cb29d3",
+    "content-hash": "bca5aa7453917cf7da4ee841b564ef0f",
     "packages": [
         {
             "name": "brick/math",
@@ -2174,6 +2174,45 @@
                 }
             ],
             "time": "2026-11-04T12:45:07+00:00"
+        },
+        {
+            "name": "mestaro/shared-kernel",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/shared-kernel",
+                "reference": "10f24993eba45e2ea10b0fcccf3466b463bc5fe8"
+            },
+            "require": {
+                "firebase/php-jwt": "^7.2",
+                "illuminate/console": "^13.0",
+                "illuminate/contracts": "^13.0",
+                "illuminate/database": "^13.0",
+                "illuminate/http": "^13.0",
+                "illuminate/redis": "^13.0",
+                "illuminate/support": "^13.0",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Mestaro\\Kernel\\KernelServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Mestaro\\Kernel\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Code every Mestaro service shares: outbox, event consumer, JWT verification, tenant database access. No business rules.",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "monolog/monolog",
@@ -10009,7 +10048,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "mestaro/shared-kernel": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

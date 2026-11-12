@@ -2,21 +2,30 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Tenancy;
+namespace Mestaro\Kernel\Tenancy;
 
-use App\Application\Tenancy\TenantDatabaseCreator;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 final class PostgresTenantDatabaseCreator implements TenantDatabaseCreator
 {
-    public function create(string $tenantId, string $password): void
+    /** Database and login role of a tenant for one service: derived only from validated ids, never from free text. */
+    public static function nameFor(string $tenantId, string $service): string
     {
-        // DDL cannot take bind parameters: the name is derived from a validated ULID, never from free text.
         if (preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $tenantId) !== 1) {
             throw new InvalidArgumentException('Tenant id must be a ULID.');
         }
-        $name = 'tenant_'.strtolower($tenantId);
+        if (preg_match('/^[a-z][a-z0-9]{2,19}$/', $service) !== 1) {
+            throw new InvalidArgumentException('Service must be 3-20 lowercase letters or digits, starting with a letter.');
+        }
+
+        return 'tenant_'.strtolower($tenantId).'_'.$service;
+    }
+
+    public function create(string $tenantId, string $service, string $password): void
+    {
+        // DDL cannot take bind parameters: the name comes from nameFor(), which only accepts a ULID and a short service id.
+        $name = self::nameFor($tenantId, $service);
 
         // Own connection: CREATE DATABASE refuses to run inside a transaction.
         $db = DB::connectUsing('tenant-provisioner', config('database.connections.'.config('database.default')), true);

@@ -3,11 +3,11 @@
 namespace App\Infrastructure\Auth;
 
 use App\Application\Audit\AuditTrail;
-use App\Application\Auth\AccessClaims;
 use App\Application\Auth\TokenIssuer;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\PersonalAccessToken;
+use Mestaro\Kernel\Auth\AccessClaims;
 
 /**
  * Login, refresh and revocation for platform administrators.

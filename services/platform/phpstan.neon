@@ -5,4 +5,5 @@ parameters:
     level: 6
     paths:
         - app
+        - ../../packages/shared-kernel/src
     # shortcut: tests excluded, Pest closures confuse static analysis; revisit with a Pest-aware extension.

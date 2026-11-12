@@ -2,9 +2,9 @@
 
 namespace App\Infrastructure\Auth;
 
-use App\Application\Auth\AccessClaims;
 use App\Application\Auth\TokenIssuer;
 use Firebase\JWT\JWT;
+use Mestaro\Kernel\Auth\AccessClaims;
 
 final readonly class JwtIssuer implements TokenIssuer
 {

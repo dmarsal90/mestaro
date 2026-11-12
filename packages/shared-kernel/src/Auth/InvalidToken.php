@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Application\Auth;
+namespace Mestaro\Kernel\Auth;
 
 use RuntimeException;
 

@@ -1,12 +1,8 @@
 <?php
 
-namespace App\Console\Commands;
+namespace Mestaro\Kernel\Messaging;
 
-use App\Application\Tenancy\ProvisionTenantDatabase;
-use App\Application\Tenancy\RecordProvisioningResult;
-use App\Application\Tenancy\RestaurantNotFound;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use RuntimeException;
@@ -14,20 +10,21 @@ use Throwable;
 
 /**
  * Consumes the event stream with a consumer group (at-least-once). A message is acknowledged only after
- * its handler finished; handlers are idempotent, so redelivery after a crash is harmless.
+ * the service's EventHandler finished; handlers are idempotent, so redelivery after a crash is harmless.
  * A message whose handler keeps failing is retried every --claim-idle ms; after --max-deliveries attempts it is
  * moved to the dead-letter stream (events.dead_stream) and acknowledged, so it cannot block or loop forever.
+ * The consumer group defaults to the service name (config kernel.service).
  */
 final class ConsumeEvents extends Command
 {
-    protected $signature = 'events:consume {--once : Process what is available and exit} {--group=platform} {--batch=10} {--claim-idle=60000 : ms before a pending message is reclaimed} {--max-deliveries=5}';
+    protected $signature = 'events:consume {--once : Process what is available and exit} {--group= : Consumer group (default: the service name)} {--batch=10} {--claim-idle=60000 : ms before a pending message is reclaimed} {--max-deliveries=5}';
 
     protected $description = 'Consume domain events from the Redis Stream';
 
-    public function handle(ProvisionTenantDatabase $provision, RecordProvisioningResult $record): int
+    public function handle(EventHandler $handler): int
     {
         $stream = config('events.stream');
-        $group = (string) $this->option('group');
+        $group = (string) ($this->option('group') ?: config('kernel.service'));
         $consumer = gethostname() ?: 'consumer';
         $batch = max(1, (int) $this->option('batch'));
         $once = (bool) $this->option('once');
@@ -51,7 +48,7 @@ final class ConsumeEvents extends Command
 
                     continue;
                 }
-                $this->process($stream, $group, $id, $fields, $provision, $record);
+                $this->process($stream, $group, $id, $fields, $handler);
             }
         } while (! $once);
 
@@ -83,50 +80,19 @@ final class ConsumeEvents extends Command
         }
     }
 
-    private function process(string $stream, string $group, string $id, mixed $fields, ProvisionTenantDatabase $provision, RecordProvisioningResult $record): void
+    private function process(string $stream, string $group, string $id, mixed $fields, EventHandler $handler): void
     {
-        // Entries trimmed from the stream while pending come back without fields.
-        $payload = is_array($fields) ? json_decode($fields['payload'] ?? '', true) : null;
-        $tenant = is_array($payload) && is_string($payload['tenant_id'] ?? null) ? $payload['tenant_id'] : null;
+        // Entries trimmed from the stream while pending come back without fields: nothing to handle, just ack.
+        if (is_array($fields)) {
+            try {
+                $handler->handle($id, $fields);
+            } catch (Throwable $e) {
+                report($e);
 
-        try {
-            // Other event types are not ours: they fall through and are acknowledged so they do not stay pending.
-            if ($tenant !== null) {
-                match ($fields['type'] ?? null) {
-                    'TenantRegistered' => $this->recordLocalResult($tenant, $provision, $record),
-                    'TenantProvisioned' => $this->recordRemoteResult($id, $tenant, $payload, null, $record),
-                    // The reason ends up in the admin API: keep it short.
-                    'TenantProvisioningFailed' => $this->recordRemoteResult($id, $tenant, $payload, mb_substr((string) ($payload['reason'] ?? 'unspecified'), 0, 200), $record),
-                    default => null,
-                };
+                return; // not acknowledged: reclaimed and retried later
             }
-        } catch (RestaurantNotFound $e) {
-            Log::warning('Event for an unknown restaurant dropped.', ['entry' => $id, 'tenant' => $e->getMessage()]);
-        } catch (Throwable $e) {
-            report($e);
-
-            return; // not acknowledged: reclaimed and retried later
         }
 
         Redis::xack($stream, $group, [$id]);
-    }
-
-    private function recordLocalResult(string $tenant, ProvisionTenantDatabase $provision, RecordProvisioningResult $record): void
-    {
-        $failure = $provision($tenant);
-        DB::transaction(fn () => $record($tenant, 'platform', $failure));
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function recordRemoteResult(string $id, string $tenant, array $payload, ?string $failure, RecordProvisioningResult $record): void
-    {
-        $service = $payload['service'] ?? null;
-        // Only services listed in tenancy.services take part; anything else is a bad or stale producer.
-        if (! is_string($service) || ! in_array($service, config('tenancy.services'), true)) {
-            Log::warning('Provisioning result from an unexpected service dropped.', ['entry' => $id, 'tenant' => $tenant]);
-
-            return;
-        }
-        DB::transaction(fn () => $record($tenant, $service, $failure));
     }
 }

@@ -6,6 +6,8 @@ namespace App\Application\Tenancy;
 
 use App\Domain\Tenancy\RestaurantRepository;
 use App\Domain\Tenancy\RestaurantStatus;
+use Mestaro\Kernel\Tenancy\TenantCredentials;
+use Mestaro\Kernel\Tenancy\TenantDatabaseCreator;
 use Throwable;
 
 final readonly class ProvisionTenantDatabase
@@ -25,7 +27,7 @@ final readonly class ProvisionTenantDatabase
         }
 
         try {
-            $this->creator->create($tenantId, $this->credentials->passwordFor($tenantId, 'platform'));
+            $this->creator->create($tenantId, 'platform', $this->credentials->passwordFor($tenantId, 'platform'));
         } catch (Throwable $e) {
             report($e);
 

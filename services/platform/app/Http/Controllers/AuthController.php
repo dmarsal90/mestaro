@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Application\Auth\AccessClaims;
-use App\Http\ApiError;
 use App\Http\Requests\LoginRequest;
 use App\Infrastructure\Auth\PlatformSessions;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Mestaro\Kernel\Auth\AccessClaims;
+use Mestaro\Kernel\Http\ApiError;
 
 final class AuthController
 {

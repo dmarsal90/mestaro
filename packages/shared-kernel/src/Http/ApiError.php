@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http;
+namespace Mestaro\Kernel\Http;
 
 use Illuminate\Http\JsonResponse;
 

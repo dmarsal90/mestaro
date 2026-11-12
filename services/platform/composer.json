@@ -10,7 +10,8 @@
         "firebase/php-jwt": "^7.2",
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.3",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "mestaro/shared-kernel": "*@dev"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -88,5 +89,11 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/shared-kernel"
+        }
+    ]
 }

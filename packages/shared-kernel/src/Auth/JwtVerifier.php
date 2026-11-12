@@ -1,9 +1,7 @@
 <?php
 
-namespace App\Infrastructure\Auth;
+namespace Mestaro\Kernel\Auth;
 
-use App\Application\Auth\AccessClaims;
-use App\Application\Auth\InvalidToken;
 use Exception;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;

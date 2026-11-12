@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Infrastructure\Tenancy;
+namespace Mestaro\Kernel\Tenancy;
 
-use App\Application\Tenancy\TenantCredentials;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
@@ -20,6 +19,13 @@ final class DatabaseTenantCredentials implements TenantCredentials
             'created_at' => now(),
         ]);
 
-        return Crypt::decryptString(DB::table('tenant_credentials')->where('restaurant_id', $tenantId)->where('service', $service)->value('password'));
+        return $this->existingPasswordFor($tenantId, $service) ?? throw new \RuntimeException('Tenant credentials vanished after insert.');
+    }
+
+    public function existingPasswordFor(string $tenantId, string $service): ?string
+    {
+        $stored = DB::table('tenant_credentials')->where('restaurant_id', $tenantId)->where('service', $service)->value('password');
+
+        return is_string($stored) ? Crypt::decryptString($stored) : null;
     }
 }

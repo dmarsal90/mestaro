@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Application\Audit\AuditTrail;
-use App\Application\Auth\AccessClaims;
 use App\Application\Tenancy\RegisterRestaurant;
 use App\Application\Tenancy\RestaurantNotFound;
 use App\Application\Tenancy\RetryProvisioning;
@@ -11,13 +10,14 @@ use App\Application\Tenancy\SlugAlreadyTaken;
 use App\Application\Tenancy\SuspendRestaurant;
 use App\Domain\Tenancy\Restaurant;
 use App\Domain\Tenancy\RestaurantRepository;
-use App\Http\ApiError;
 use App\Http\Requests\RegisterRestaurantRequest;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Mestaro\Kernel\Auth\AccessClaims;
+use Mestaro\Kernel\Http\ApiError;
 
 final class RestaurantAdminController
 {
