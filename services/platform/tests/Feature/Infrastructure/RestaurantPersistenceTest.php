@@ -88,3 +88,18 @@ it('keeps other connections out of a locked restaurant row until the lock is rel
         DB::purge('other');
     }
 });
+
+it('persists provisioned services without duplicating them', function () {
+    $repository = app(RestaurantRepository::class);
+    $restaurant = Restaurant::register('01JABCDEFGHJKMNPQRSTVWXYZ0', 'La Taberna', 'taberna');
+    $restaurant->recordProvisioned('platform', ['platform', 'catalog']);
+    $repository->save($restaurant);
+    $repository->save($restaurant);
+
+    $found = $repository->find($restaurant->id());
+    $found->recordProvisioned('catalog', ['platform', 'catalog']);
+    $repository->save($found);
+
+    expect($repository->find($restaurant->id())?->status())->toBe(RestaurantStatus::Active)
+        ->and(DB::table('restaurant_provisioning')->count())->toBe(2);
+});
