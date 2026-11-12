@@ -32,6 +32,8 @@ x-platform-env: &platform-env
   MAIL_MAILER: smtp
   MAIL_HOST: mailpit
   MAIL_PORT: 1025
+  # php-fpm sits on the internal network behind the gateway, which overwrites X-Forwarded-For.
+  TRUSTED_PROXIES: "*"
 
 services:
   platform:
