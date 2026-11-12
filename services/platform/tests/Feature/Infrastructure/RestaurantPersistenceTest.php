@@ -66,3 +66,25 @@ it('loads a restaurant with a row lock inside a transaction', function () {
     expect($found?->slug())->toBe('taberna')
         ->and($sql)->toContain('for update');
 });
+
+it('keeps other connections out of a locked restaurant row until the lock is released', function () {
+    $id = '01JABCDEFGHJKMNPQRSTVWXYZ0';
+    config(['database.connections.other' => config('database.connections.'.config('database.default'))]);
+    $other = DB::connection('other');
+    // Committed on its own connection: the test transaction on the default one would otherwise hide it.
+    $other->table('restaurants')->insert(['id' => $id, 'name' => 'La Taberna', 'slug' => 'taberna', 'status' => 'provisioning', 'created_at' => now(), 'updated_at' => now()]);
+    $probe = fn () => $other->select('select id from restaurants where id = ? for update nowait', [$id]);
+
+    try {
+        // The savepoint lets us release the row lock without ending the test transaction.
+        DB::beginTransaction();
+        app(RestaurantRepository::class)->find($id, forUpdate: true);
+        expect($probe)->toThrow(QueryException::class, 'could not obtain lock');
+        DB::rollBack();
+
+        expect($probe())->toHaveCount(1);
+    } finally {
+        $other->table('restaurants')->where('id', $id)->delete();
+        DB::purge('other');
+    }
+});
