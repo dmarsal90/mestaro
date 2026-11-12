@@ -1,0 +1,5 @@
+version: 2
+secret:
+  ignored_paths:
+    # Fake passwords (quotes/SQL literal) used only to test credential handling.
+    - 'services/platform/tests/Feature/Infrastructure/TenantCredentialsTest.php'
