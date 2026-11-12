@@ -144,3 +144,38 @@ it('ignores results from services that are not expected', function () {
         ->and(DB::table('restaurant_provisioning')->pluck('service')->all())->toBe(['platform'])
         ->and(pendingCount())->toBe(0);
 });
+
+it('moves a message that keeps failing to the dead-letter stream and acknowledges it', function () {
+    config(['events.dead_stream' => 'test.dead.'.Str::ulid()]);
+    $this->app->bind(RestaurantRepository::class, fn () => new class implements RestaurantRepository
+    {
+        public function save(Restaurant $restaurant): void {}
+
+        public function find(string $id, bool $forUpdate = false): ?Restaurant
+        {
+            throw new RuntimeException('database is down');
+        }
+
+        public function slugExists(string $slug): bool
+        {
+            return false;
+        }
+    });
+    remoteEvent('TenantRegistered', []);
+    $options = ['--once' => true, '--claim-idle' => 0, '--max-deliveries' => 2];
+
+    // Deliveries 1 and 2 fail and stay pending; the third attempt finds 3 > 2 and gives up.
+    foreach (range(1, 2) as $_) {
+        $this->artisan('events:consume', $options)->assertSuccessful();
+        expect(pendingCount())->toBe(1)->and(Redis::xlen(config('events.dead_stream')))->toBe(0);
+    }
+    $this->artisan('events:consume', $options)->assertSuccessful();
+
+    $dead = array_values(Redis::xrange(config('events.dead_stream'), '-', '+'));
+    expect($dead)->toHaveCount(1)
+        ->and($dead[0]['type'])->toBe('TenantRegistered')
+        ->and($dead[0])->toHaveKeys(['source_id', 'dead_at'])
+        ->and(pendingCount())->toBe(0);
+
+    Redis::del(config('events.dead_stream'));
+});
