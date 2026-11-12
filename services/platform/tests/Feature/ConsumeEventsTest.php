@@ -98,3 +98,49 @@ it('marks provisioning failed with a safe reason when the database cannot be cre
         ->and($restaurant?->failureReason())->toBe('platform: database creation failed')
         ->and(pendingCount())->toBe(0);
 });
+
+function remoteEvent(string $type, array $payload): void
+{
+    Redis::xadd(config('events.stream'), '*', ['event_id' => (string) Str::ulid(), 'type' => $type, 'occurred_at' => 'x', 'payload' => json_encode($payload + ['tenant_id' => CONSUMER_TENANT])]);
+}
+
+it('activates only after every expected service reported, including remote ones', function () {
+    config(['tenancy.services' => ['platform', 'catalog']]);
+    registerAndRelay();
+    $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
+    expect(app(RestaurantRepository::class)->find(CONSUMER_TENANT)?->status())->toBe(RestaurantStatus::Provisioning);
+
+    remoteEvent('TenantProvisioned', ['service' => 'catalog']);
+    $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
+
+    expect(app(RestaurantRepository::class)->find(CONSUMER_TENANT)?->status())->toBe(RestaurantStatus::Active)
+        ->and(pendingCount())->toBe(0);
+});
+
+it('records a remote failure with a bounded reason', function () {
+    config(['tenancy.services' => ['platform', 'catalog']]);
+    registerAndRelay();
+    $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
+
+    remoteEvent('TenantProvisioningFailed', ['service' => 'catalog', 'reason' => str_repeat('x', 500)]);
+    $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
+
+    $restaurant = app(RestaurantRepository::class)->find(CONSUMER_TENANT);
+    expect($restaurant?->status())->toBe(RestaurantStatus::ProvisioningFailed)
+        ->and($restaurant?->failureReason())->toBe('catalog: '.str_repeat('x', 200));
+});
+
+it('ignores results from services that are not expected', function () {
+    config(['tenancy.services' => ['platform', 'catalog']]);
+    registerAndRelay();
+    $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
+
+    remoteEvent('TenantProvisioned', ['service' => 'billing']);
+    remoteEvent('TenantProvisioningFailed', ['service' => 'mallory', 'reason' => 'x']);
+    remoteEvent('TenantProvisioned', []);
+    $this->artisan('events:consume', ['--once' => true])->assertSuccessful();
+
+    expect(app(RestaurantRepository::class)->find(CONSUMER_TENANT)?->status())->toBe(RestaurantStatus::Provisioning)
+        ->and(DB::table('restaurant_provisioning')->pluck('service')->all())->toBe(['platform'])
+        ->and(pendingCount())->toBe(0);
+});

@@ -66,13 +66,19 @@ final class ConsumeEvents extends Command
     {
         // Entries trimmed from the stream while pending come back without fields.
         $payload = is_array($fields) ? json_decode($fields['payload'] ?? '', true) : null;
+        $tenant = is_array($payload) && is_string($payload['tenant_id'] ?? null) ? $payload['tenant_id'] : null;
 
         try {
-            if (($fields['type'] ?? null) === 'TenantRegistered' && is_array($payload) && is_string($payload['tenant_id'] ?? null)) {
-                $failure = $provision($payload['tenant_id']);
-                DB::transaction(fn () => $record($payload['tenant_id'], 'platform', $failure));
+            // Other event types are not ours: they fall through and are acknowledged so they do not stay pending.
+            if ($tenant !== null) {
+                match ($fields['type'] ?? null) {
+                    'TenantRegistered' => $this->recordLocalResult($tenant, $provision, $record),
+                    'TenantProvisioned' => $this->recordRemoteResult($id, $tenant, $payload, null, $record),
+                    // The reason ends up in the admin API: keep it short.
+                    'TenantProvisioningFailed' => $this->recordRemoteResult($id, $tenant, $payload, mb_substr((string) ($payload['reason'] ?? 'unspecified'), 0, 200), $record),
+                    default => null,
+                };
             }
-            // Other event types are not ours: acknowledge so they do not stay pending.
         } catch (RestaurantNotFound $e) {
             Log::warning('Event for an unknown restaurant dropped.', ['entry' => $id, 'tenant' => $e->getMessage()]);
         } catch (Throwable $e) {
@@ -82,5 +88,24 @@ final class ConsumeEvents extends Command
         }
 
         Redis::xack($stream, $group, [$id]);
+    }
+
+    private function recordLocalResult(string $tenant, ProvisionTenantDatabase $provision, RecordProvisioningResult $record): void
+    {
+        $failure = $provision($tenant);
+        DB::transaction(fn () => $record($tenant, 'platform', $failure));
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function recordRemoteResult(string $id, string $tenant, array $payload, ?string $failure, RecordProvisioningResult $record): void
+    {
+        $service = $payload['service'] ?? null;
+        // Only services listed in tenancy.services take part; anything else is a bad or stale producer.
+        if (! is_string($service) || ! in_array($service, config('tenancy.services'), true)) {
+            Log::warning('Provisioning result from an unexpected service dropped.', ['entry' => $id, 'tenant' => $tenant]);
+
+            return;
+        }
+        DB::transaction(fn () => $record($tenant, $service, $failure));
     }
 }
