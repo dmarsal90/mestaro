@@ -20,7 +20,7 @@ beforeEach(function () {
 afterEach(function () {
     Redis::del(config('events.stream'));
     $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
-    $db->statement('drop database if exists "tenant_'.strtolower(CONSUMER_TENANT).'"');
+    $db->statement('drop database if exists "tenant_'.strtolower(CONSUMER_TENANT).'" with (force)');
     $db->statement('drop role if exists "tenant_'.strtolower(CONSUMER_TENANT).'"');
 });
 
@@ -84,7 +84,7 @@ it('drops events for unknown restaurants and ignores other event types', functio
 it('marks provisioning failed with a safe reason when the database cannot be created', function () {
     $this->app->bind(TenantDatabaseCreator::class, fn () => new class implements TenantDatabaseCreator
     {
-        public function create(string $tenantId): void
+        public function create(string $tenantId, string $password): void
         {
             throw new RuntimeException('password authentication failed for user "secret"');
         }

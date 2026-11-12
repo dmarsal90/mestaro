@@ -13,6 +13,7 @@ final readonly class ProvisionTenantDatabase
     public function __construct(
         private RestaurantRepository $restaurants,
         private TenantDatabaseCreator $creator,
+        private TenantCredentials $credentials,
     ) {}
 
     /** @return string|null null on success (or when there is nothing to do), otherwise a safe failure reason */
@@ -24,7 +25,7 @@ final readonly class ProvisionTenantDatabase
         }
 
         try {
-            $this->creator->create($tenantId);
+            $this->creator->create($tenantId, $this->credentials->passwordFor($tenantId, 'platform'));
         } catch (Throwable $e) {
             report($e);
 
