@@ -18,6 +18,8 @@ final class Restaurant
         private readonly string $slug,
         private RestaurantStatus $status,
         private ?string $failureReason,
+        /** @var list<string> services that already reported a successful provisioning */
+        private array $provisioned = [],
     ) {}
 
     /** The slug ends up in database and role names, so it is restricted to a safe alphabet. */
@@ -36,9 +38,29 @@ final class Restaurant
         return $restaurant;
     }
 
-    public static function reconstitute(string $id, string $name, string $slug, RestaurantStatus $status, ?string $failureReason): self
+    /** @param list<string> $provisioned */
+    public static function reconstitute(string $id, string $name, string $slug, RestaurantStatus $status, ?string $failureReason, array $provisioned = []): self
     {
-        return new self($id, $name, $slug, $status, $failureReason);
+        return new self($id, $name, $slug, $status, $failureReason, $provisioned);
+    }
+
+    /**
+     * One service finished provisioning. Idempotent per service; the restaurant becomes active
+     * once every expected service has reported. Results outside `provisioning` are ignored.
+     *
+     * @param  list<string>  $expected
+     */
+    public function recordProvisioned(string $service, array $expected): void
+    {
+        if ($this->status !== RestaurantStatus::Provisioning) {
+            return;
+        }
+        if (! in_array($service, $this->provisioned, true)) {
+            $this->provisioned[] = $service;
+        }
+        if (array_diff($expected, $this->provisioned) === []) {
+            $this->markProvisioned();
+        }
     }
 
     public function markProvisioned(): void
@@ -84,6 +106,12 @@ final class Restaurant
         $this->events = [];
 
         return $events;
+    }
+
+    /** @return list<string> */
+    public function provisionedServices(): array
+    {
+        return $this->provisioned;
     }
 
     public function id(): string

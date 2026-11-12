@@ -76,3 +76,25 @@ it('ignores late provisioning results unless provisioning', function () {
 
     expect($restaurant->status())->toBe(RestaurantStatus::Active);
 });
+
+it('activates only once every expected service reported, ignoring duplicates', function () {
+    $restaurant = newRestaurant();
+    $expected = ['platform', 'catalog'];
+
+    $restaurant->recordProvisioned('platform', $expected);
+    $restaurant->recordProvisioned('platform', $expected);
+    expect($restaurant->status())->toBe(RestaurantStatus::Provisioning)
+        ->and($restaurant->provisionedServices())->toBe(['platform']);
+
+    $restaurant->recordProvisioned('catalog', $expected);
+    expect($restaurant->status())->toBe(RestaurantStatus::Active);
+});
+
+it('ignores a provisioning report after a failure', function () {
+    $restaurant = newRestaurant();
+    $restaurant->markProvisioningFailed('catalog: timeout');
+    $restaurant->recordProvisioned('platform', ['platform']);
+
+    expect($restaurant->status())->toBe(RestaurantStatus::ProvisioningFailed)
+        ->and($restaurant->provisionedServices())->toBe([]);
+});

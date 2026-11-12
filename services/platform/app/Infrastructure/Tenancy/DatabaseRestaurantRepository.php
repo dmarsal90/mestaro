@@ -24,6 +24,11 @@ final class DatabaseRestaurantRepository implements RestaurantRepository
             'created_at' => $now,
             'updated_at' => $now,
         ]], ['id'], ['status', 'failure_reason', 'updated_at']);
+
+        DB::table('restaurant_provisioning')->insertOrIgnore(array_map(
+            fn (string $service) => ['restaurant_id' => $restaurant->id(), 'service' => $service, 'created_at' => $now],
+            $restaurant->provisionedServices(),
+        ));
     }
 
     public function find(string $id, bool $forUpdate = false): ?Restaurant
@@ -37,6 +42,7 @@ final class DatabaseRestaurantRepository implements RestaurantRepository
             $row->slug,
             RestaurantStatus::from($row->status),
             $row->failure_reason,
+            DB::table('restaurant_provisioning')->where('restaurant_id', $id)->pluck('service')->all(),
         );
     }
 
