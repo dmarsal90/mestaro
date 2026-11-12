@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 600" role="img" aria-label="Mestaro logo">
+<rect width="1800" height="600" fill="#F5F3EE"/>
+<g transform="translate(70 55) scale(0.49)">
+<path d="M 90 170 L 330 260 L 500 390 L 670 260 L 910 170 L 910 720 L 770 835 L 770 405 L 500 600 L 230 405 L 230 835 L 90 720 Z" fill="#171717" fill-rule="evenodd"/>
+</g>
+<text x="650" y="345" font-family="Inter, Montserrat, Arial, sans-serif" font-size="250" font-weight="500" letter-spacing="-8" fill="#171717">mestaro</text>
+</svg>
