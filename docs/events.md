@@ -4,7 +4,7 @@ Transporte: Redis Stream `mestaro.events` (`EVENTS_STREAM`). Cada evento se publ
 
 Campos de cada entrada del stream: `event_id` (ULID, único por evento), `type`, `occurred_at`, `payload` (JSON).
 
-Consumo: grupo de consumidores (`XREADGROUP`), `XACK` solo tras procesar. Los mensajes pendientes se reclaman tras 60 s (`XAUTOCLAIM`). Un tipo de evento desconocido se confirma e ignora.
+Consumo: grupo de consumidores (`XREADGROUP`), `XACK` solo tras procesar. Los mensajes pendientes se reclaman tras 60 s (`XAUTOCLAIM`). Un tipo de evento desconocido se confirma e ignora. Un mensaje cuyo handler falla más de 5 veces (`--max-deliveries`) pasa al stream `mestaro.events.dead` (`EVENTS_DEAD_STREAM`) con sus campos originales más `source_id` y `dead_at`, y se confirma; revisar ese stream es parte de la operación.
 
 ## Provisión de tenants
 
@@ -18,7 +18,7 @@ Flujo (ADR-004/013): `platform` publica `TenantRegistered`; cada servicio crea s
 
 Reglas para quien responda:
 
-- `tenant_id` es el ULID del restaurante; `service` debe estar en `TENANCY_SERVICES`, si no `platform` descarta el evento.
+- `tenant_id` es el ULID del restaurante; `service` debe estar en `TENANCY_SERVICES`, si no `platform` descarta el evento. Al incorporar un servicio nuevo hay que añadirlo a `TENANCY_SERVICES` **antes** de que empiece a responder (y antes de registrar restaurantes que deba provisionar, o se activarían sin él).
 - Responder es idempotente: repetir `TenantProvisioned` no cambia nada. Un resultado que llega cuando el restaurante ya no está en `provisioning` se ignora.
 - `reason` se expone en la API de administración: sin mensajes de drivers, credenciales ni rutas.
 - Un evento para un restaurante desconocido se registra y se descarta.

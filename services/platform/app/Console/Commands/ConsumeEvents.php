@@ -15,12 +15,12 @@ use Throwable;
 /**
  * Consumes the event stream with a consumer group (at-least-once). A message is acknowledged only after
  * its handler finished; handlers are idempotent, so redelivery after a crash is harmless.
- * shortcut: a message whose handler keeps failing is retried every --claim-idle ms forever; add a delivery
- * counter (XPENDING) and a dead-letter stream if poison messages show up.
+ * A message whose handler keeps failing is retried every --claim-idle ms; after --max-deliveries attempts it is
+ * moved to the dead-letter stream (events.dead_stream) and acknowledged, so it cannot block or loop forever.
  */
 final class ConsumeEvents extends Command
 {
-    protected $signature = 'events:consume {--once : Process what is available and exit} {--group=platform} {--batch=10} {--claim-idle=60000 : ms before a pending message is reclaimed}';
+    protected $signature = 'events:consume {--once : Process what is available and exit} {--group=platform} {--batch=10} {--claim-idle=60000 : ms before a pending message is reclaimed} {--max-deliveries=5}';
 
     protected $description = 'Consume domain events from the Redis Stream';
 
@@ -46,11 +46,32 @@ final class ConsumeEvents extends Command
             $entries += $read === [] ? [] : reset($read);
 
             foreach ($entries as $id => $fields) {
+                if (isset($claimed[1][$id]) && $this->deliveries($stream, $group, $id) > (int) $this->option('max-deliveries')) {
+                    $this->deadLetter($stream, $group, $id, $fields);
+
+                    continue;
+                }
                 $this->process($stream, $group, $id, $fields, $provision, $record);
             }
         } while (! $once);
 
         return self::SUCCESS;
+    }
+
+    private function deliveries(string $stream, string $group, string $id): int
+    {
+        return (int) (Redis::xpending($stream, $group, $id, $id, 1)[0][3] ?? 0);
+    }
+
+    private function deadLetter(string $stream, string $group, string $id, mixed $fields): void
+    {
+        // An entry trimmed from the stream while pending has no fields left to keep.
+        $entry = is_array($fields) ? $fields : [];
+        if (Redis::xadd(config('events.dead_stream'), '*', $entry + ['source_id' => $id, 'dead_at' => now()->toIso8601String()]) === false) {
+            throw new RuntimeException("XADD to the dead-letter stream failed for entry {$id}");
+        }
+        Redis::xack($stream, $group, [$id]);
+        Log::error('Event moved to the dead-letter stream after repeated failures.', ['entry' => $id, 'type' => $entry['type'] ?? null]);
     }
 
     private function ensureGroup(string $stream, string $group): void

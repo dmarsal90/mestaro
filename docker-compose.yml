@@ -32,6 +32,8 @@ x-platform-env: &platform-env
   MAIL_MAILER: smtp
   MAIL_HOST: mailpit
   MAIL_PORT: 1025
+  # Services that must report before a restaurant activates; add each new service before it starts answering.
+  TENANCY_SERVICES: ${TENANCY_SERVICES:-platform}
   # php-fpm sits on the internal network behind the gateway, which overwrites X-Forwarded-For.
   TRUSTED_PROXIES: "*"
 
