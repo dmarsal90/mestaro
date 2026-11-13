@@ -37,7 +37,7 @@ x-platform-env: &platform-env
   # Services verify access tokens against this issuer; it must be the same string everywhere.
   JWT_ISSUER: mestaro-platform
   # Only peers on the internal network (the gateway, which overwrites X-Forwarded-For) may set it.
-  TRUSTED_PROXIES: 172.31.250.0/24
+  TRUSTED_PROXIES: ${INTERNAL_SUBNET:-172.31.250.0/24}
 
 # Settings every business service shares; each service adds its own key and database below.
 x-service-env: &service-env
@@ -51,7 +51,7 @@ x-service-env: &service-env
   QUEUE_CONNECTION: redis
   JWKS_URL: http://gateway/.well-known/jwks.json
   JWT_ISSUER: mestaro-platform
-  TRUSTED_PROXIES: 172.31.250.0/24
+  TRUSTED_PROXIES: ${INTERNAL_SUBNET:-172.31.250.0/24}
 
 x-catalog-env: &catalog-env
   <<: *service-env
@@ -274,5 +274,5 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 172.31.250.0/24
+        - subnet: ${INTERNAL_SUBNET:-172.31.250.0/24}
   edge:
