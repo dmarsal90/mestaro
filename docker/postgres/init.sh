@@ -13,4 +13,14 @@ CREATE ROLE catalog LOGIN PASSWORD '${CATALOG_DB_PASSWORD}';
 CREATE DATABASE mestaro_catalog OWNER catalog;
 CREATE DATABASE mestaro_catalog_test OWNER catalog;
 ALTER ROLE catalog CREATEDB CREATEROLE;
+
+CREATE ROLE operations LOGIN PASSWORD '${OPERATIONS_DB_PASSWORD}';
+CREATE DATABASE mestaro_operations OWNER operations;
+CREATE DATABASE mestaro_operations_test OWNER operations;
+ALTER ROLE operations CREATEDB CREATEROLE;
+
+CREATE ROLE billing LOGIN PASSWORD '${BILLING_DB_PASSWORD}';
+CREATE DATABASE mestaro_billing OWNER billing;
+CREATE DATABASE mestaro_billing_test OWNER billing;
+ALTER ROLE billing CREATEDB CREATEROLE;
 SQL

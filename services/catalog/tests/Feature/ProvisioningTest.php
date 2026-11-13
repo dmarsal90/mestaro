@@ -12,7 +12,7 @@ const TENANT = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 
 function tenantDatabase(string $tenant): string
 {
-    return PostgresTenantDatabaseCreator::nameFor($tenant, 'catalog');
+    return PostgresTenantDatabaseCreator::nameFor($tenant, config('kernel.service'));
 }
 
 function publishEvent(string $type, string $tenant): void
@@ -45,8 +45,8 @@ it('creates its tenant database and answers TenantProvisioned', function () {
     consume();
 
     expect(DB::selectOne('select count(*) as n from pg_database where datname = ?', [tenantDatabase(TENANT)])->n)->toBe(1)
-        ->and(answers())->toEqual([['TenantProvisioned', ['tenant_id' => TENANT, 'service' => 'catalog']]])
-        ->and(DB::table('tenant_credentials')->where('restaurant_id', TENANT)->where('service', 'catalog')->count())->toBe(1);
+        ->and(answers())->toEqual([['TenantProvisioned', ['tenant_id' => TENANT, 'service' => config('kernel.service')]]])
+        ->and(DB::table('tenant_credentials')->where('restaurant_id', TENANT)->where('service', config('kernel.service'))->count())->toBe(1);
 });
 
 it('survives a redelivered registration: one database, one password, an answer each time', function () {
@@ -71,7 +71,7 @@ it('reports a generic reason when the database cannot be created', function () {
     publishEvent('TenantRegistered', TENANT);
     consume();
 
-    expect(answers())->toEqual([['TenantProvisioningFailed', ['tenant_id' => TENANT, 'service' => 'catalog', 'reason' => 'database creation failed']]]);
+    expect(answers())->toEqual([['TenantProvisioningFailed', ['tenant_id' => TENANT, 'service' => config('kernel.service'), 'reason' => 'database creation failed']]]);
 });
 
 it('drops registrations with an invalid tenant id and ignores other events', function () {
@@ -80,5 +80,5 @@ it('drops registrations with an invalid tenant id and ignores other events', fun
     consume();
 
     expect(answers())->toBe([])
-        ->and((int) (Redis::xpending(config('events.stream'), 'catalog')[0] ?? 0))->toBe(0);
+        ->and((int) (Redis::xpending(config('events.stream'), config('kernel.service'))[0] ?? 0))->toBe(0);
 });

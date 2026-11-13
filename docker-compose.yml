@@ -27,34 +27,59 @@ x-platform-env: &platform-env
   REDIS_HOST: redis
   REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
   CACHE_STORE: redis
+  # Own prefix per service: they share one Redis, and `migrate --isolated` locks through the cache, so with a shared
+  # prefix a service that starts at the same time as another silently skips its migrations.
+  CACHE_PREFIX: platform-
   QUEUE_CONNECTION: redis
   SESSION_DRIVER: redis
   MAIL_MAILER: smtp
   MAIL_HOST: mailpit
   MAIL_PORT: 1025
   # Services that must report before a restaurant activates; add each new service before it starts answering.
-  TENANCY_SERVICES: ${TENANCY_SERVICES:-platform,catalog}
+  TENANCY_SERVICES: ${TENANCY_SERVICES:-platform,catalog,operations,billing}
   # Services verify access tokens against this issuer; it must be the same string everywhere.
   JWT_ISSUER: mestaro-platform
   # Only peers on the internal network (the gateway, which overwrites X-Forwarded-For) may set it.
-  TRUSTED_PROXIES: 172.31.250.0/24
+  TRUSTED_PROXIES: ${INTERNAL_SUBNET:-172.31.250.0/24}
 
-x-catalog-env: &catalog-env
+# Settings every business service shares; each service adds its own key and database below.
+x-service-env: &service-env
   APP_ENV: local
-  APP_KEY: ${CATALOG_APP_KEY:?set CATALOG_APP_KEY in .env}
   DB_CONNECTION: pgsql
   DB_HOST: postgres
   DB_PORT: 5432
-  DB_DATABASE: mestaro_catalog
-  DB_USERNAME: catalog
-  DB_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env} # ggignore: variable reference, the value lives in .env
   REDIS_HOST: redis
   REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
   CACHE_STORE: redis
   QUEUE_CONNECTION: redis
   JWKS_URL: http://gateway/.well-known/jwks.json
   JWT_ISSUER: mestaro-platform
-  TRUSTED_PROXIES: 172.31.250.0/24
+  TRUSTED_PROXIES: ${INTERNAL_SUBNET:-172.31.250.0/24}
+
+x-catalog-env: &catalog-env
+  <<: *service-env
+  CACHE_PREFIX: catalog-
+  APP_KEY: ${CATALOG_APP_KEY:?set CATALOG_APP_KEY in .env}
+  DB_DATABASE: mestaro_catalog
+  DB_USERNAME: catalog
+  DB_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env} # ggignore: variable reference, the value lives in .env
+
+x-operations-env: &operations-env
+  <<: *service-env
+  CACHE_PREFIX: operations-
+  APP_KEY: ${OPERATIONS_APP_KEY:?set OPERATIONS_APP_KEY in .env}
+  DB_DATABASE: mestaro_operations
+  DB_USERNAME: operations
+  DB_PASSWORD: ${OPERATIONS_DB_PASSWORD:?set OPERATIONS_DB_PASSWORD in .env} # ggignore: variable reference, the value lives in .env
+
+x-billing-env: &billing-env
+  <<: *service-env
+  CACHE_PREFIX: billing-
+  APP_KEY: ${BILLING_APP_KEY:?set BILLING_APP_KEY in .env}
+  DB_DATABASE: mestaro_billing
+  DB_USERNAME: billing
+  DB_PASSWORD: ${BILLING_DB_PASSWORD:?set BILLING_DB_PASSWORD in .env} # ggignore: variable reference, the value lives in .env
+
 
 services:
   platform:
@@ -133,12 +158,80 @@ services:
       - ./packages:/var/packages
     environment: *catalog-env
 
+  operations:
+    <<: *php
+    command: fpm
+    working_dir: /var/www/html
+    volumes:
+      - ./services/operations:/var/www/html
+      - ./packages:/var/packages
+    environment:
+      <<: *operations-env
+      RUN_MIGRATIONS: "true"
+    healthcheck:
+      test: [CMD, healthcheck]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  operations-relay:
+    <<: *php
+    command: [php, artisan, outbox:relay]
+    restart: unless-stopped
+    volumes:
+      - ./services/operations:/var/www/html
+      - ./packages:/var/packages
+    environment: *operations-env
+
+  operations-consumer:
+    <<: *php
+    command: [php, artisan, events:consume]
+    restart: unless-stopped
+    volumes:
+      - ./services/operations:/var/www/html
+      - ./packages:/var/packages
+    environment: *operations-env
+
+  billing:
+    <<: *php
+    command: fpm
+    working_dir: /var/www/html
+    volumes:
+      - ./services/billing:/var/www/html
+      - ./packages:/var/packages
+    environment:
+      <<: *billing-env
+      RUN_MIGRATIONS: "true"
+    healthcheck:
+      test: [CMD, healthcheck]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  billing-relay:
+    <<: *php
+    command: [php, artisan, outbox:relay]
+    restart: unless-stopped
+    volumes:
+      - ./services/billing:/var/www/html
+      - ./packages:/var/packages
+    environment: *billing-env
+
+  billing-consumer:
+    <<: *php
+    command: [php, artisan, events:consume]
+    restart: unless-stopped
+    volumes:
+      - ./services/billing:/var/www/html
+      - ./packages:/var/packages
+    environment: *billing-env
+
   gateway:
     image: nginx:1.31.8-alpine
     ports: ["${GATEWAY_PORT:-8100}:80"]
     volumes:
       - ./docker/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on: [platform, catalog]
+    depends_on: [platform, catalog, operations, billing]
     networks: [internal, edge]
 
   postgres:
@@ -148,6 +241,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?set PLATFORM_DB_PASSWORD in .env}
       CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?set CATALOG_DB_PASSWORD in .env}
+      OPERATIONS_DB_PASSWORD: ${OPERATIONS_DB_PASSWORD:?set OPERATIONS_DB_PASSWORD in .env}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD:?set BILLING_DB_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
@@ -185,5 +280,5 @@ networks:
     internal: true
     ipam:
       config:
-        - subnet: 172.31.250.0/24
+        - subnet: ${INTERNAL_SUBNET:-172.31.250.0/24}
   edge:
