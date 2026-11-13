@@ -27,7 +27,9 @@ cleanup() {
     if [ "$code" -ne 0 ] || [ "$FAILED" -ne 0 ]; then
         printf '\n-- container state and recent logs\n'
         dc ps --format '{{.Service}} {{.Status}}' 2>&1 | sort || true
-        dc logs --tail 15 platform platform-consumer catalog-consumer operations-consumer billing-consumer 2>&1 | tail -80 || true
+        # Health-check hits on the web processes are noise; everything else from the event pipeline is useful.
+        dc logs --no-color --tail 30 platform-relay catalog-relay operations-relay billing-relay \
+            platform-consumer catalog-consumer operations-consumer billing-consumer 2>&1 | grep -v 'GET /index.php' | tail -150 || true
     fi
     if [ "${KEEP:-0}" = 1 ]; then
         echo "KEEP=1: project mestaro-e2e left running (gateway on :${PORT})."
