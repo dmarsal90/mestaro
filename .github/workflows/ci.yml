@@ -56,3 +56,23 @@ jobs:
       - run: vendor/bin/pint --test . ../../packages/shared-kernel
       - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
       - run: vendor/bin/pest
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl, bcmath, sodium, redis
+          coverage: none
+      # The stack's containers have no internet: dependencies are installed here and bind-mounted.
+      - name: Install dependencies of every service
+        run: |
+          for service in platform catalog operations billing; do
+            (cd "services/$service" && touch .env && composer install --no-interaction --prefer-dist --no-progress)
+          done
+      # shortcut: the image is built without a layer cache (a few minutes); add buildx cache if CI time matters.
+      - run: bash e2e/run.sh
