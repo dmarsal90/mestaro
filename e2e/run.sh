@@ -80,6 +80,10 @@ dc up -d >/dev/null
 healthy() { dc ps --format '{{.Service}} {{.Health}}' | grep -cE '^(platform|catalog|operations|billing) healthy$' || true; }
 for _ in $(seq 1 120); do [ "$(healthy)" = 4 ] && break; sleep 2; done
 check "all four services healthy" test "$(healthy)" = 4
+# Each service runs `migrate --isolated` at start; if services share a cache prefix one of them can skip it silently.
+for s in "${SERVICES[@]}"; do
+    check "$s ran its migrations" test "$(dc exec -T postgres psql -U postgres -d "mestaro_$s" -tAc "select to_regclass('public.outbox') is not null")" = t
+done
 
 step "administrator login"
 PW="e2e-$(secret)"

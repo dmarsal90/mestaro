@@ -27,6 +27,9 @@ x-platform-env: &platform-env
   REDIS_HOST: redis
   REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
   CACHE_STORE: redis
+  # Own prefix per service: they share one Redis, and `migrate --isolated` locks through the cache, so with a shared
+  # prefix a service that starts at the same time as another silently skips its migrations.
+  CACHE_PREFIX: platform-
   QUEUE_CONNECTION: redis
   SESSION_DRIVER: redis
   MAIL_MAILER: smtp
@@ -55,6 +58,7 @@ x-service-env: &service-env
 
 x-catalog-env: &catalog-env
   <<: *service-env
+  CACHE_PREFIX: catalog-
   APP_KEY: ${CATALOG_APP_KEY:?set CATALOG_APP_KEY in .env}
   DB_DATABASE: mestaro_catalog
   DB_USERNAME: catalog
@@ -62,6 +66,7 @@ x-catalog-env: &catalog-env
 
 x-operations-env: &operations-env
   <<: *service-env
+  CACHE_PREFIX: operations-
   APP_KEY: ${OPERATIONS_APP_KEY:?set OPERATIONS_APP_KEY in .env}
   DB_DATABASE: mestaro_operations
   DB_USERNAME: operations
@@ -69,6 +74,7 @@ x-operations-env: &operations-env
 
 x-billing-env: &billing-env
   <<: *service-env
+  CACHE_PREFIX: billing-
   APP_KEY: ${BILLING_APP_KEY:?set BILLING_APP_KEY in .env}
   DB_DATABASE: mestaro_billing
   DB_USERNAME: billing
