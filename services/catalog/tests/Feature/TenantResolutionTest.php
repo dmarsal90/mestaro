@@ -31,10 +31,10 @@ function tokenFor(?string $tenant, ?string $secret = null): string
 
 function provision(string $tenant, string $marker): void
 {
-    $password = app(TenantCredentials::class)->passwordFor($tenant, 'catalog');
-    app(TenantDatabaseCreator::class)->create($tenant, 'catalog', $password);
+    $password = app(TenantCredentials::class)->passwordFor($tenant, config('kernel.service'));
+    app(TenantDatabaseCreator::class)->create($tenant, config('kernel.service'), $password);
 
-    $name = PostgresTenantDatabaseCreator::nameFor($tenant, 'catalog');
+    $name = PostgresTenantDatabaseCreator::nameFor($tenant, config('kernel.service'));
     /** @var Connection $db */
     $db = DB::connectUsing('seed-'.$name, [...config('database.connections.pgsql'), 'database' => $name, 'username' => $name, 'password' => $password], true);
     $db->statement('create table marker (owner text)');
@@ -64,7 +64,7 @@ beforeEach(function () {
 afterEach(function () {
     $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
     foreach ([TENANT_A, TENANT_B] as $id) {
-        $name = PostgresTenantDatabaseCreator::nameFor($id, 'catalog');
+        $name = PostgresTenantDatabaseCreator::nameFor($id, config('kernel.service'));
         $db->statement('drop database if exists "'.$name.'" with (force)');
         $db->statement('drop role if exists "'.$name.'"');
     }
@@ -72,9 +72,9 @@ afterEach(function () {
 
 it('serves each token its own tenant database and nothing of the other', function () {
     $this->getJson('/api/v1/_probe', ['Authorization' => 'Bearer '.tokenFor(TENANT_A)])
-        ->assertOk()->assertExactJson(['database' => PostgresTenantDatabaseCreator::nameFor(TENANT_A, 'catalog'), 'marker' => 'A']);
+        ->assertOk()->assertExactJson(['database' => PostgresTenantDatabaseCreator::nameFor(TENANT_A, config('kernel.service')), 'marker' => 'A']);
     $this->getJson('/api/v1/_probe', ['Authorization' => 'Bearer '.tokenFor(TENANT_B)])
-        ->assertOk()->assertExactJson(['database' => PostgresTenantDatabaseCreator::nameFor(TENANT_B, 'catalog'), 'marker' => 'B']);
+        ->assertOk()->assertExactJson(['database' => PostgresTenantDatabaseCreator::nameFor(TENANT_B, config('kernel.service')), 'marker' => 'B']);
 });
 
 it('ignores a tenant id sent in the request: only the token decides', function () {

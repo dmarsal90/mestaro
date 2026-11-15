@@ -1,0 +1,9 @@
+# The image only needs docker/; keep the build context small (vendor trees are large and rebuilt in containers).
+.git
+.github
+docs
+**/vendor
+**/node_modules
+services/*/storage
+services/*/.env
+.env

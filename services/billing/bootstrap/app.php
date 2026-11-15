@@ -1,0 +1,37 @@
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Mestaro\Kernel\Http\ApiError;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        api: __DIR__.'/../routes/api.php',
+        apiPrefix: 'api/v1',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        // Trust X-Forwarded-For only from TRUSTED_PROXIES (comma-separated IPs/CIDRs, or '*' when
+        // the app is reachable solely through the gateway). Unset means the socket peer is the client.
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES') ?: null, headers: Request::HEADER_X_FORWARDED_FOR);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(fn (ValidationException $e, Request $request) => $request->is('api/*')
+            ? ApiError::response('VALIDATION_FAILED', 'Invalid input.', 422, $e->errors())
+            : null);
+        $exceptions->render(fn (ThrottleRequestsException $e, Request $request) => $request->is('api/*')
+            ? ApiError::response('RATE_LIMITED', 'Too many requests.', 429)->withHeaders($e->getHeaders())
+            : null);
+        $exceptions->render(fn (NotFoundHttpException $e, Request $request) => $request->is('api/*')
+            ? ApiError::response('NOT_FOUND', 'Resource not found.', 404)
+            : null);
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+        );
+    })->create();
