@@ -35,13 +35,13 @@ Administración de plataforma (superadmin): `POST /admin/restaurants` (registra 
 
 El tenant sale del token; para personal con varios restaurantes, `X-Restaurant` selecciona uno que debe estar en las membresías del token. Nunca basta por sí solo.
 
-Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, token_type, expires_in, refresh_token } }`. El JWT dura 10 min; el refresh token es un token de Sanctum (hasheado en BD, 30 días, un solo uso: cada `refresh` lo rota). `logout` revoca los refresh tokens del usuario; el JWT vigente caduca por su TTL. Cualquier fallo de credenciales responde el mismo `401 UNAUTHENTICATED`. Por ahora solo inician sesión los administradores de plataforma; el personal de restaurante llega con membresías y roles.
+Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, token_type, expires_in, refresh_token } }`. El JWT dura 10 min; el refresh token es un token de Sanctum (hasheado en BD, 30 días, un solo uso: cada `refresh` lo rota). `logout` revoca los refresh tokens del usuario y el JWT usado en la llamada (*denylist*); los JWT de otros dispositivos caducan por su TTL. Restablecer la contraseña invalida todos los JWT emitidos antes. Cualquier fallo de credenciales responde el mismo `401 UNAUTHENTICATED`. Recuperación: `forgot-password` responde siempre `202` y envía el enlace solo a cuentas activas; `reset-password` (`email`, `token`, `password` ≥ 12 con `password_confirmation`) responde `204`, cierra todas las sesiones y consume el token (60 min); cualquier fallo es `422 INVALID_RESET_TOKEN`. Ambos comparten el rate limit de `login`. Inician sesión los administradores de plataforma y el personal con membresía activa en un restaurante `active`. Con varios restaurantes, `login` responde `{ data: { restaurants: [{ id, name }] } }` y el cliente repite la petición con `restaurant_id`. El JWT del personal lleva `tenant_id`, el rol y sus permisos; el refresh token recuerda el restaurante y relee rol y permisos en cada `refresh`, así que una membresía desactivada deja de renovarse.
 
 ## Endpoints (esqueleto)
 
 | Grupo | Endpoints | Auth / permiso |
 |---|---|---|
-| Auth | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` | login/refresh públicos con rate limit (5/min por cuenta+IP); logout/me con JWT |
+| Auth | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password` | login/refresh públicos con rate limit (5/min por cuenta+IP); logout/me con JWT |
 | Restaurantes | `GET /restaurants`, `GET/PATCH /restaurants/{id}` | `restaurant.manage` |
 | Usuarios | `GET/POST /users`, `GET/PATCH /users/{id}` | `users.manage` |
 | Zonas y mesas | `/zones`, `/tables`, `POST /tables/{id}/qr/rotate` | `floor.manage` |

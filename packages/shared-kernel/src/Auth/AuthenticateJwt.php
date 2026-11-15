@@ -36,13 +36,30 @@ final readonly class AuthenticateJwt
         }
 
         try {
-            $request->attributes->set('claims', $verifier->verify($token));
+            $claims = $verifier->verify($token);
         } catch (InvalidToken) {
-            Log::notice('Access denied: invalid token.', ['method' => $request->method(), 'path' => Str::limit($request->path(), 120, '')]);
-
-            return ApiError::response('UNAUTHENTICATED', 'Invalid credentials.', 401);
+            return $this->denied($request);
         }
 
+        try {
+            $revoked = $this->container->make(TokenDenylist::class)->isRevoked($claims);
+        } catch (Throwable $e) {
+            report($e);
+
+            return ApiError::response('AUTH_UNAVAILABLE', 'Authentication is temporarily unavailable.', 503); // fail closed
+        }
+        if ($revoked) {
+            return $this->denied($request);
+        }
+        $request->attributes->set('claims', $claims);
+
         return $next($request);
+    }
+
+    private function denied(Request $request): Response
+    {
+        Log::notice('Access denied: invalid token.', ['method' => $request->method(), 'path' => Str::limit($request->path(), 120, '')]);
+
+        return ApiError::response('UNAUTHENTICATED', 'Invalid credentials.', 401);
     }
 }

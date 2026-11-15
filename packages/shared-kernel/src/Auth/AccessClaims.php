@@ -10,5 +10,8 @@ final readonly class AccessClaims
         public ?string $tenantId,
         public string $role,
         public array $permissions,
+        public string $jti = '',
+        public int $issuedAt = 0,
+        public int $expiresAt = 0,
     ) {}
 }

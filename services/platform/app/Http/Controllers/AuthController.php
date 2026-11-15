@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Mestaro\Kernel\Auth\AccessClaims;
+use Mestaro\Kernel\Auth\TokenDenylist;
 use Mestaro\Kernel\Http\ApiError;
 
 final class AuthController
@@ -17,6 +18,7 @@ final class AuthController
         return $this->tokens($sessions->login(
             strtolower($request->string('email')->toString()),
             $request->string('password')->toString(),
+            $request->has('restaurant_id') ? $request->string('restaurant_id')->toString() : null,
         ));
     }
 
@@ -27,14 +29,15 @@ final class AuthController
         return $this->tokens($sessions->refresh($request->string('refresh_token')->toString()));
     }
 
-    /** shortcut: revokes refresh tokens only; the access JWT lives out its TTL (10 min). Add a Redis denylist if that window matters. */
-    public function logout(Request $request, PlatformSessions $sessions): JsonResponse
+    /** Revokes every refresh token and the access token used for this call; other devices' access tokens expire within their TTL. */
+    public function logout(Request $request, PlatformSessions $sessions, TokenDenylist $denylist): JsonResponse
     {
         $user = $this->user($request);
         if ($user === null) {
             return ApiError::response('UNAUTHENTICATED', 'Invalid credentials.', 401);
         }
         $sessions->revokeAll($user);
+        $denylist->revokeToken($request->attributes->get('claims'));
 
         return response()->json(null, 204);
     }
