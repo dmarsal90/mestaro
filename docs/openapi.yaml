@@ -124,6 +124,36 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '429': { $ref: '#/components/responses/Error' }
+  /auth/accept-invitation:
+    post:
+      summary: Aceptar una invitación al personal
+      description: >
+        Con cuenta nueva, `password` pasa a ser su contraseña (mínimo 12). Con una cuenta existente debe ser la
+        contraseña de esa cuenta: es su consentimiento para unirse.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string, maxLength: 255 }
+                password: { type: string, maxLength: 1024 }
+      responses:
+        '204': { description: Invitación aceptada }
+        '409':
+          description: '`ALREADY_MEMBER`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: Datos inválidos, `INVALID_INVITATION` o `INVALID_CREDENTIALS`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /settings:
     get:
       summary: Ajustes del restaurante del token
@@ -180,10 +210,11 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
     post:
-      summary: Dar de alta a una persona
+      summary: Invitar a una persona
       description: >
-        Requiere `users.manage`. Responde `201` igual para cuentas nuevas, existentes o desactivadas. A las
-        nuevas se les envía el enlace para fijar su contraseña.
+        Requiere `users.manage`. No crea ni modifica ninguna cuenta: guarda una invitación (caduca a los 7 días;
+        invitar de nuevo sustituye la pendiente) y envía el enlace por correo. La persona entra al restaurante
+        solo al aceptarla en `/auth/accept-invitation`.
       requestBody:
         required: true
         content:

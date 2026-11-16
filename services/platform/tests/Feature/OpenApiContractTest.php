@@ -151,6 +151,10 @@ it('answers the documented shapes', function () {
     assertDocumented('PATCH', '/settings', $this->patchJson('/api/v1/settings', ['currency' => 'euro'], $boss));
     assertDocumented('GET', '/staff', $this->getJson('/api/v1/staff', $boss));
     assertDocumented('POST', '/staff', $this->postJson('/api/v1/staff', ['name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'waiter'], $boss));
+    // The mailed token is not stored, so the pending invitation is swapped for one with a known token.
+    DB::table('staff_invitations')->where('email', 'ana@example.com')->update(['token_hash' => hash('sha256', 'known-token')]);
+    assertDocumented('POST', '/auth/accept-invitation', $this->postJson('/api/v1/auth/accept-invitation', ['token' => 'bad', 'password' => 'a brand new password']));
+    assertDocumented('POST', '/auth/accept-invitation', $this->postJson('/api/v1/auth/accept-invitation', ['token' => 'known-token', 'password' => 'a brand new password']));
     assertDocumented('POST', '/staff', $this->postJson('/api/v1/staff', ['name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'waiter'], $boss));
     $ana = User::where('email', 'ana@example.com')->firstOrFail();
     assertDocumented('PATCH', '/staff/{id}', $this->patchJson('/api/v1/staff/'.$ana->public_id, ['role' => 'bar'], $boss));
