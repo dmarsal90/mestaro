@@ -46,7 +46,7 @@ Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, tok
 | Personal | `GET /staff`, `POST /staff`, `PATCH /staff/{id}` | Permiso `users.manage` (solo `restaurant_admin`); el restaurante sale del token. `POST` (`name`, `email`, `role`) solo crea una invitación (7 días, sustituye a la pendiente) y envía el enlace; no toca ninguna cuenta. `409 ALREADY_MEMBER` si ya pertenece. La persona se une con `POST /auth/accept-invitation` (`token`, `password`): cuenta nueva = fija su contraseña; cuenta existente = debe dar la suya (`422 INVALID_CREDENTIALS`); enlace caducado, usado o de cuenta desactivada = `422 INVALID_INVITATION`. `PATCH` cambia `role` o `is_active` y revoca sus JWT abiertos; nadie puede modificarse a sí mismo (`422 CANNOT_MODIFY_SELF`) |
 | Restaurantes | `GET /restaurants`, `GET/PATCH /restaurants/{id}` | `restaurant.manage` |
 | Usuarios | `GET/POST /users`, `GET/PATCH /users/{id}` | `users.manage` |
-| Zonas y mesas | `/zones`, `/tables`, `POST /tables/{id}/qr/rotate` | `floor.manage` |
+| Zonas y mesas | `GET/POST /zones`, `PATCH /zones/{id}`, `GET/POST /tables`, `PATCH /tables/{id}`, `POST /tables/{id}/qr/rotate` | Lectura: cualquier personal; escritura: `floor.manage`. `qr_token` solo se devuelve con `floor.manage`. Nombre de zona y etiqueta de mesa únicos (`409`); no se crean mesas en zonas inactivas (`422 INVALID_ZONE`); rotar el QR invalida el anterior |
 | Menú | `/categories`, `/products`, `/products/{id}/variants`, `/products/{id}/addons` | `menu.manage`; lectura pública vía sesión |
 | Público QR | `GET /public/tables/{qr_token}`, `POST /public/tables/{qr_token}/sessions`, `POST /public/sessions/join` | pública con rate limit |
 | Sesión | `GET /session`, `POST /session/close` | participante / personal |
