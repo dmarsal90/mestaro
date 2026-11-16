@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\ProductOptionController;
 use App\Http\Controllers\TableController;
 use App\Http\Controllers\ZoneController;
@@ -33,9 +35,16 @@ Route::middleware(['throttle:120,1', AuthenticateJwt::class, ResolveTenant::clas
     Route::patch('products/{id}', [ProductController::class, 'update'])->middleware($menu)->whereUlid('id');
     Route::delete('products/{id}', [ProductController::class, 'destroy'])->middleware($menu)->whereUlid('id');
 
+    Route::post('products/{id}/image', [ProductImageController::class, 'store'])->middleware($menu)->whereUlid('id');
+    Route::delete('products/{id}/image', [ProductImageController::class, 'destroy'])->middleware($menu)->whereUlid('id');
+
     foreach (['variants', 'addons'] as $kind) {
         Route::post("products/{productId}/$kind", [ProductOptionController::class, 'store'])->middleware($menu)->whereUlid('productId')->defaults('kind', $kind);
         Route::patch("products/{productId}/$kind/{id}", [ProductOptionController::class, 'update'])->middleware($menu)->whereUlid(['productId', 'id'])->defaults('kind', $kind);
         Route::delete("products/{productId}/$kind/{id}", [ProductOptionController::class, 'destroy'])->middleware($menu)->whereUlid(['productId', 'id'])->defaults('kind', $kind);
     }
 });
+
+// Public (the QR client has no account) and cacheable; the pattern admits only names this service generates.
+Route::get('media/{tenant}/{file}', [MediaController::class, 'show'])->middleware('throttle:600,1')
+    ->where(['tenant' => '[0-9A-HJKMNP-TV-Z]{26}', 'file' => '[0-9a-f]{40}\.(jpg|png|webp)']);

@@ -1,6 +1,9 @@
 <?php
 
 declare(strict_types=1);
+use Illuminate\Http\Testing\File;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 function category(string $tenant = FLOOR_A, string $name = 'Entrantes'): string
 {
@@ -104,4 +107,56 @@ it('lets any staff read the menu but only menu.manage write it', function () {
     $this->deleteJson("/api/v1/products/{$p['id']}", [], $waiter)->assertForbidden();
     $this->postJson("/api/v1/products/{$p['id']}/addons", ['name' => 'X'], $waiter)->assertForbidden();
     $this->postJson('/api/v1/zones', ['name' => 'Z'], staffOf(FLOOR_A, ['menu.manage']))->assertForbidden();
+});
+
+/** A real 1x1 PNG: the image extension is not installed, so fake()->image() is not available. */
+function pngUpload(string $name = 'photo.png'): File
+{
+    $path = tempnam(sys_get_temp_dir(), 'png');
+    file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+    return new File($name, fopen($path, 'r'));
+}
+
+it('stores a product photo by its real type, serves it publicly and replaces or removes it', function () {
+    Storage::fake('local');
+    $p = product(category());
+
+    $url = $this->post("/api/v1/products/{$p['id']}/image", ['image' => pngUpload()], staffOf(FLOOR_A) + ['Accept' => 'application/json'])->assertCreated()->json('data.image_url');
+    expect($url)->toMatch('#^/api/v1/media/'.FLOOR_A.'/[0-9a-f]{40}\.png$#')
+        ->and($this->getJson('/api/v1/products', staffOf(FLOOR_A))->json('data.0.image_url'))->toBe($url);
+
+    $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/png')->assertHeader('X-Content-Type-Options', 'nosniff');
+    $this->get(str_replace(FLOOR_A, FLOOR_B, $url))->assertNotFound();
+
+    $second = $this->post("/api/v1/products/{$p['id']}/image", ['image' => pngUpload()], staffOf(FLOOR_A) + ['Accept' => 'application/json'])->json('data.image_url');
+    $this->get($url)->assertNotFound();
+    $this->get($second)->assertOk();
+
+    $this->deleteJson("/api/v1/products/{$p['id']}/image", [], staffOf(FLOOR_A))->assertNoContent();
+    $this->get($second)->assertNotFound();
+    expect($this->getJson('/api/v1/products', staffOf(FLOOR_A))->json('data.0.image_url'))->toBeNull();
+});
+
+it('refuses files that are not images whatever their name says, and unauthorised uploads', function () {
+    Storage::fake('local');
+    $p = product(category());
+    $headers = staffOf(FLOOR_A) + ['Accept' => 'application/json'];
+
+    $script = UploadedFile::fake()->createWithContent('shell.png', '<?php echo 1;');
+    $svg = UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+    $big = UploadedFile::fake()->create('big.png', 3000, 'image/png');
+
+    foreach ([$script, $svg, $big] as $bad) {
+        $this->post("/api/v1/products/{$p['id']}/image", ['image' => $bad], $headers)->assertStatus(422);
+    }
+    $this->post("/api/v1/products/{$p['id']}/image", [], $headers)->assertStatus(422);
+    $this->post("/api/v1/products/{$p['id']}/image", ['image' => pngUpload()], staffOf(FLOOR_A, ['orders.view']) + ['Accept' => 'application/json'])->assertForbidden();
+    $this->post('/api/v1/products/01JNOPE0000000000000000000/image', ['image' => pngUpload()], $headers)->assertNotFound();
+    expect(Storage::disk('local')->allFiles())->toBe([]);
+});
+
+it('does not serve anything for names it did not generate', function () {
+    $this->get('/api/v1/media/'.FLOOR_A.'/..%2F..%2F.env')->assertNotFound();
+    $this->get('/api/v1/media/'.FLOOR_A.'/not-a-generated-name.png')->assertNotFound();
 });
