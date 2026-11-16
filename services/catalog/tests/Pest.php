@@ -46,4 +46,4 @@ pest()->beforeEach(function () {
         $db->statement('drop database if exists "'.$name.'" with (force)');
         $db->statement('drop role if exists "'.$name.'"');
     }
-})->in('Feature/FloorTest.php', 'Feature/MenuTest.php');
+})->in('Feature/FloorTest.php', 'Feature/MenuTest.php', 'Feature/ContractTest.php');
