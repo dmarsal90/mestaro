@@ -3,8 +3,8 @@
 use App\Application\Auth\TokenIssuer;
 use App\Infrastructure\Auth\JwtKeys;
 use App\Models\User;
+use App\Notifications\StaffInvitation;
 use Firebase\JWT\JWT;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Mestaro\Kernel\Auth\AccessClaims;
@@ -22,7 +22,7 @@ beforeEach(function () {
 /** @return array{0: User, 1: array{Authorization: string}} */
 function staffMember(string $role, string $restaurant = SA, ?string $email = null): array
 {
-    $email ??= "$role-$restaurant@example.com";
+    $email ??= strtolower("$role-$restaurant@example.com");
     $user = User::factory()->create(['email' => $email, 'password' => 'correct horse battery']);
     member($user, $restaurant, $role);
     // Signed directly: logging in over HTTP for every fixture would trip the login rate limit.
@@ -40,7 +40,7 @@ it('lists only the staff of the restaurant in the token', function () {
 
     $emails = collect($this->getJson('/api/v1/staff', $admin)->assertOk()->json('data'))->pluck('email')->all();
 
-    expect($emails)->toEqualCanonicalizing(['restaurant_admin-'.SA.'@example.com', 'waiter-'.SA.'@example.com']);
+    expect($emails)->toEqualCanonicalizing([strtolower('restaurant_admin-'.SA.'@example.com'), strtolower('waiter-'.SA.'@example.com')]);
 });
 
 it('is reserved to users.manage', function () {
@@ -54,29 +54,77 @@ it('is reserved to users.manage', function () {
     }
 });
 
-it('invites a new person with a reset link and attaches an existing one', function () {
+/** Invites through the API and returns the token that went out by mail. */
+function invite(array $auth, string $email, string $role = 'waiter'): string
+{
     Notification::fake();
-    [, $admin] = staffMember('restaurant_admin');
-    $existing = User::factory()->create(['email' => 'known@example.com']);
+    test()->postJson('/api/v1/staff', ['name' => 'Ana', 'email' => $email, 'role' => $role], $auth)->assertCreated();
+    $token = null;
+    Notification::assertSentOnDemand(StaffInvitation::class, function ($n, $channels, $route) use ($email, &$token) {
+        $token = (fn () => $this->token)->call($n);
 
-    $this->postJson('/api/v1/staff', ['name' => 'Ana', 'email' => 'Ana@Example.com', 'role' => 'waiter'], $admin)->assertCreated();
-    $this->postJson('/api/v1/staff', ['name' => 'Ignored', 'email' => 'known@example.com', 'role' => 'kitchen'], $admin)->assertCreated();
+        return $route->routes['mail'] === strtolower($email);
+    });
+
+    return $token;
+}
+
+it('invites without attaching anything, then a new person accepts and sets a password', function () {
+    [, $admin] = staffMember('restaurant_admin');
+
+    $token = invite($admin, 'Ana@Example.com', 'kitchen');
+    expect(User::where('email', 'ana@example.com')->exists())->toBeFalse()
+        ->and(DB::table('staff_invitations')->count())->toBe(1);
+
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $token, 'password' => 'short'])->assertStatus(422);
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $token, 'password' => 'a long enough passphrase'])->assertNoContent();
 
     $ana = User::where('email', 'ana@example.com')->firstOrFail();
-    Notification::assertSentTo($ana, ResetPassword::class);
-    Notification::assertNotSentTo($existing, ResetPassword::class);
-    expect(DB::table('restaurant_user')->where('restaurant_id', SA)->whereIn('user_id', [$ana->id, $existing->id])->count())->toBe(2)
-        ->and($existing->fresh()->name)->not->toBe('Ignored');
-    $this->postJson('/api/v1/staff', ['name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'bar'], $admin)->assertStatus(409)->assertJsonPath('error.code', 'ALREADY_MEMBER');
+    expect(DB::table('restaurant_user')->where('restaurant_id', SA)->where('user_id', $ana->id)->exists())->toBeTrue()
+        ->and(DB::table('staff_invitations')->count())->toBe(0);
+    $this->postJson('/api/v1/auth/login', ['email' => 'ana@example.com', 'password' => 'a long enough passphrase'])->assertOk();
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $token, 'password' => 'a long enough passphrase'])->assertStatus(422)->assertJsonPath('error.code', 'INVALID_INVITATION');
 });
 
-it('answers an invitation for a disabled account like any other and adds nothing', function () {
+it('does not touch an existing account until its owner accepts with the account password', function () {
     [, $admin] = staffMember('restaurant_admin');
-    $off = User::factory()->create(['email' => 'off@example.com', 'is_active' => false]);
+    $existing = User::factory()->create(['email' => 'known@example.com', 'name' => 'Known', 'password' => 'correct horse battery']);
 
-    $this->postJson('/api/v1/staff', ['name' => 'Off', 'email' => 'off@example.com', 'role' => 'waiter'], $admin)->assertCreated();
+    $token = invite($admin, 'known@example.com');
+    expect(DB::table('restaurant_user')->where('user_id', $existing->id)->count())->toBe(0);
 
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $token, 'password' => 'not the password'])->assertStatus(422)->assertJsonPath('error.code', 'INVALID_CREDENTIALS');
+    expect(DB::table('restaurant_user')->where('user_id', $existing->id)->count())->toBe(0);
+
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $token, 'password' => 'correct horse battery'])->assertNoContent();
+    expect(DB::table('restaurant_user')->where('restaurant_id', SA)->where('user_id', $existing->id)->count())->toBe(1)
+        ->and($existing->fresh()->name)->toBe('Known');
+});
+
+it('rejects expired, unknown and disabled-account invitations alike, and an existing member', function () {
+    [, $admin] = staffMember('restaurant_admin');
+    $off = User::factory()->create(['email' => 'off@example.com', 'is_active' => false, 'password' => 'correct horse battery']);
+    $token = invite($admin, 'off@example.com');
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $token, 'password' => 'correct horse battery'])->assertStatus(422)->assertJsonPath('error.code', 'INVALID_INVITATION');
     expect(DB::table('restaurant_user')->where('user_id', $off->id)->count())->toBe(0);
+
+    $late = invite($admin, 'late@example.com');
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => 'nope', 'password' => 'a long enough passphrase'])->assertStatus(422)->assertJsonPath('error.code', 'INVALID_INVITATION');
+    DB::table('staff_invitations')->where('email', 'late@example.com')->update(['expires_at' => now()->subSecond()]);
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $late, 'password' => 'a long enough passphrase'])->assertStatus(422)->assertJsonPath('error.code', 'INVALID_INVITATION');
+
+    [$waiter] = staffMember('waiter');
+    $this->postJson('/api/v1/staff', ['name' => 'W', 'email' => $waiter->email, 'role' => 'bar'], $admin)->assertStatus(409)->assertJsonPath('error.code', 'ALREADY_MEMBER');
+});
+
+it('replaces the pending invitation when inviting again, so the old link stops working', function () {
+    [, $admin] = staffMember('restaurant_admin');
+    $first = invite($admin, 'ana@example.com');
+    $second = invite($admin, 'ana@example.com', 'bar');
+
+    expect(DB::table('staff_invitations')->count())->toBe(1);
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $first, 'password' => 'a long enough passphrase'])->assertStatus(422);
+    $this->postJson('/api/v1/auth/accept-invitation', ['token' => $second, 'password' => 'a long enough passphrase'])->assertNoContent();
 });
 
 it('changes a role or deactivates, and cuts the person\'s open access tokens', function () {

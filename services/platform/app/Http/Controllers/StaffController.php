@@ -4,13 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Application\Audit\AuditTrail;
 use App\Http\Requests\StaffRequest;
-use App\Models\User;
+use App\Notifications\StaffInvitation;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Mestaro\Kernel\Auth\AccessClaims;
 use Mestaro\Kernel\Auth\TokenDenylist;
@@ -20,6 +19,8 @@ use Throwable;
 /** Staff of the restaurant in the token. A user is only ever reached through a membership of that restaurant. */
 final class StaffController
 {
+    private const INVITATION_DAYS = 7;
+
     public function __construct(private AuditTrail $audit, private TokenDenylist $denylist) {}
 
     public function index(Request $request): JsonResponse
@@ -31,41 +32,30 @@ final class StaffController
     {
         $claims = $this->claims($request);
         $email = strtolower($request->string('email')->toString());
-        $isNew = false;
+        $name = $request->string('name')->toString();
 
-        $user = User::where('email', $email)->first();
-        if ($user === null) {
-            try {
-                // Random password nobody knows: the person sets their own through the reset link below.
-                $user = DB::transaction(fn () => User::create(['name' => $request->string('name')->toString(), 'email' => $email, 'password' => Str::random(40)]))->refresh(); // refresh: column defaults (is_active) are not on the new instance
-                $isNew = true;
-            } catch (UniqueConstraintViolationException) {
-                $user = User::where('email', $email)->firstOrFail(); // lost a race with another invitation
-            }
-        }
-        if (! $user->is_active) {
-            // Same answer as for a new member so an administrator cannot probe which accounts exist or are disabled.
-            return $this->created($claims, $user, $request, false);
-        }
-
-        try {
-            // A transaction (a savepoint when nested) so catching the duplicate leaves the connection usable.
-            DB::transaction(fn () => DB::table('restaurant_user')->insert([
-                'restaurant_id' => $claims->tenantId, 'user_id' => $user->id, 'role_id' => $this->roleId($request->string('role')->toString()),
-                'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
-            ]));
-        } catch (UniqueConstraintViolationException) {
+        $alreadyMember = DB::table('restaurant_user as ru')->join('users as u', 'u.id', '=', 'ru.user_id')
+            ->where('ru.restaurant_id', $claims->tenantId)->where('u.email', $email)->exists();
+        if ($alreadyMember) {
             return ApiError::response('ALREADY_MEMBER', 'This person already belongs to the restaurant.', 409);
         }
-        if ($isNew) {
-            try {
-                Password::sendResetLink(['email' => $email, 'is_active' => true]);
-            } catch (Throwable $e) {
-                report($e); // the account exists; the administrator can resend through "forgot password"
-            }
+
+        // Nothing is attached to any account here: the person accepts through the link, so an administrator cannot add (or probe) accounts.
+        $token = Str::random(48);
+        DB::table('staff_invitations')->upsert([[
+            'restaurant_id' => $claims->tenantId, 'email' => $email, 'name' => $name, 'role_id' => $this->roleId($request->string('role')->toString()),
+            'token_hash' => hash('sha256', $token), 'invited_by' => $claims->userId, 'expires_at' => now()->addDays(self::INVITATION_DAYS), 'created_at' => now(),
+        ]], ['restaurant_id', 'email'], ['name', 'role_id', 'token_hash', 'invited_by', 'expires_at', 'created_at']);
+        $this->audit->record('staff.invited', $claims->userId, 'restaurant', $claims->tenantId, ['role' => $request->string('role')->toString()]);
+
+        try {
+            $restaurant = DB::table('restaurants')->where('id', $claims->tenantId)->value('name');
+            Notification::route('mail', $email)->notify(new StaffInvitation($restaurant, $token, self::INVITATION_DAYS));
+        } catch (Throwable $e) {
+            report($e); // the invitation exists; inviting again resends it
         }
 
-        return $this->created($claims, $user, $request, true);
+        return response()->json(null, 201);
     }
 
     public function update(StaffRequest $request, string $id): JsonResponse
@@ -94,15 +84,6 @@ final class StaffController
         }
 
         return response()->json(['data' => $this->present($this->members($claims->tenantId)->where('u.public_id', $id)->first())]);
-    }
-
-    private function created(AccessClaims $claims, User $user, StaffRequest $request, bool $added): JsonResponse
-    {
-        if ($added) {
-            $this->audit->record('staff.added', $claims->userId, 'user', $user->public_id, ['restaurant_id' => $claims->tenantId, 'role' => $request->string('role')->toString()]);
-        }
-
-        return response()->json(null, 201);
     }
 
     private function roleId(string $key): int
