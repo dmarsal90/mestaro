@@ -3,8 +3,10 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RestaurantAdminController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Middleware\AuthenticateJwt;
 use App\Http\Middleware\RequirePlatformAdmin;
+use App\Http\Middleware\RequireTenant;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
@@ -22,4 +24,9 @@ Route::prefix('admin')->middleware(['throttle:60,1', AuthenticateJwt::class, Req
     Route::get('restaurants/{id}', [RestaurantAdminController::class, 'show'])->whereUlid('id');
     Route::post('restaurants/{id}/suspend', [RestaurantAdminController::class, 'suspend'])->whereUlid('id');
     Route::post('restaurants/{id}/retry-provisioning', [RestaurantAdminController::class, 'retryProvisioning'])->whereUlid('id');
+});
+
+Route::prefix('settings')->middleware(['throttle:60,1', AuthenticateJwt::class])->group(function () {
+    Route::get('/', [SettingsController::class, 'show'])->middleware(RequireTenant::class);
+    Route::patch('/', [SettingsController::class, 'update'])->middleware(RequireTenant::class.':restaurant.manage');
 });

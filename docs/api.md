@@ -42,6 +42,7 @@ Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, tok
 | Grupo | Endpoints | Auth / permiso |
 |---|---|---|
 | Auth | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/forgot-password`, `POST /auth/reset-password` | login/refresh públicos con rate limit (5/min por cuenta+IP); logout/me con JWT |
+| Ajustes | `GET /settings`, `PATCH /settings` | El restaurante sale del token. `GET`: cualquier personal del restaurante; `PATCH` (parcial): permiso `restaurant.manage`. Sin fila guardada se devuelven los valores por defecto |
 | Restaurantes | `GET /restaurants`, `GET/PATCH /restaurants/{id}` | `restaurant.manage` |
 | Usuarios | `GET/POST /users`, `GET/PATCH /users/{id}` | `users.manage` |
 | Zonas y mesas | `/zones`, `/tables`, `POST /tables/{id}/qr/rotate` | `floor.manage` |
