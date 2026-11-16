@@ -1,0 +1,68 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - link "Skip to content" [ref=f1e3] [cursor=pointer]:
+      - /url: "#fi-main-content"
+    - button "User menu" [ref=f1e9] [cursor=pointer]:
+      - img "Avatar of Tmp Admin" [ref=f1e10]
+    - main [ref=f1e12]:
+      - generic [ref=f1e13]:
+        - generic [ref=f1e14]:
+          - generic [ref=f1e15]:
+            - generic [ref=f1e16]: Mestaro
+            - heading "Set up two-factor authentication" [level=1] [ref=f1e17]
+            - paragraph [ref=f1e18]: 2FA adds an extra layer of security to your account by requiring a second form of verification when signing in.
+          - generic [ref=f1e32]:
+            - generic [ref=f1e33]:
+              - generic [ref=f1e34]: Authenticator app
+              - generic [ref=f1e35]: Disabled
+            - button "Set up" [ref=f1e42] [cursor=pointer]
+            - generic [ref=f1e46]: Use a secure app to generate a temporary code for login verification.
+        - generic:
+          - dialog "Set up authenticator app":
+            - generic [active] [ref=f1e52]:
+              - generic [ref=f1e53]:
+                - button "Close" [ref=f1e54] [cursor=pointer]
+                - generic [ref=f1e61]:
+                  - heading "Set up authenticator app" [level=2] [ref=f1e62]
+                  - paragraph [ref=f1e63]:
+                    - text: You'll need an app like Google Authenticator (
+                    - link "iOS" [ref=f1e64] [cursor=pointer]:
+                      - /url: https://itunes.apple.com/us/app/google-authenticator/id388497605
+                    - text: ","
+                    - link "Android" [ref=f1e66] [cursor=pointer]:
+                      - /url: https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
+                    - text: ) to complete this process.
+              - generic [ref=f1e72]:
+                - group "app" [ref=f1e73]:
+                  - generic [ref=f1e74]:
+                    - generic [ref=f1e78]:
+                      - generic [ref=f1e79]: "Scan this QR code with your authenticator app:"
+                      - img "QR code to scan with an authenticator app" [ref=f1e84]
+                      - generic [ref=f1e87]:
+                        - generic [ref=f1e88]: "Or enter this code manually:"
+                        - button "B4HMTSMCC4LXRV5B" [ref=f1e91] [cursor=pointer]
+                    - generic [ref=f1e94]:
+                      - generic [ref=f1e98]:
+                        - text: Enter the 6-digit code from the authenticator app
+                        - superscript [ref=f1e99]: "*"
+                      - generic [ref=f1e100]:
+                        - group "Enter the 6-digit code from the authenticator app" [ref=f1e102]:
+                          - textbox "Enter the 6-digit code from the authenticator app*" [ref=f1e103]
+                          - textbox "Character 2 of 6" [ref=f1e104]
+                          - textbox "Character 3 of 6" [ref=f1e105]
+                          - textbox "Character 4 of 6" [ref=f1e106]
+                          - textbox "Character 5 of 6" [ref=f1e107]
+                          - textbox "Character 6 of 6" [ref=f1e108]
+                        - generic [ref=f1e109]: You will need to enter the 6-digit code from your authenticator app each time you sign in or perform sensitive actions.
+                    - generic [ref=f1e115]:
+                      - generic [ref=f1e119]:
+                        - text: Current password
+                        - superscript [ref=f1e120]: "*"
+                      - generic [ref=f1e122]:
+                        - textbox "Current password*" [ref=f1e124]
+                        - button "Show password" [ref=f1e127] [cursor=pointer]
+                - generic [ref=f1e131]:
+                  - button "Cancel" [ref=f1e133] [cursor=pointer]
+                  - button "Next" [ref=f1e135] [cursor=pointer]
+  - generic:
+    - status

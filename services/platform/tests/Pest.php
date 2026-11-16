@@ -13,7 +13,7 @@ function platformAdmin(array $attrs = []): User
     $user = User::factory()->create($attrs);
     $user->forceFill(['is_platform_admin' => true, ...array_intersect_key($attrs, ['is_platform_admin' => 1])])->save();
 
-    return $user;
+    return $user->refresh(); // column defaults (is_active) are not on a fresh instance
 }
 
 function restaurant(string $id, string $name, string $status = 'active'): string

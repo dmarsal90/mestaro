@@ -1,0 +1,67 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - link "Skip to content" [ref=f1e3] [cursor=pointer]:
+      - /url: "#fi-main-content"
+    - button "User menu" [ref=f1e9] [cursor=pointer]:
+      - img "Avatar of Tmp Admin" [ref=f1e10]
+    - main [ref=f1e12]:
+      - generic [ref=f1e13]:
+        - generic [ref=f1e14]:
+          - generic [ref=f1e15]:
+            - generic [ref=f1e16]: Mestaro
+            - heading "Set up two-factor authentication" [level=1] [ref=f1e17]
+            - paragraph [ref=f1e18]: 2FA adds an extra layer of security to your account by requiring a second form of verification when signing in.
+          - generic [ref=f1e32]:
+            - generic [ref=f1e33]:
+              - generic [ref=f1e34]: Authenticator app
+              - generic [ref=f1e35]: Disabled
+            - button "Set up" [ref=f1e42] [cursor=pointer]
+            - generic [ref=f1e46]: Use a secure app to generate a temporary code for login verification.
+        - generic:
+          - dialog "Set up authenticator app":
+            - generic [ref=f1e52]:
+              - generic [ref=f1e53]:
+                - button "Close" [ref=f1e54] [cursor=pointer]
+                - generic [ref=f1e61]:
+                  - heading "Set up authenticator app" [level=2] [ref=f1e62]
+                  - paragraph [ref=f1e63]:
+                    - text: You'll need an app like Google Authenticator (
+                    - link "iOS" [ref=f1e64] [cursor=pointer]:
+                      - /url: https://itunes.apple.com/us/app/google-authenticator/id388497605
+                    - text: ","
+                    - link "Android" [ref=f1e66] [cursor=pointer]:
+                      - /url: https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2
+                    - text: ) to complete this process.
+              - generic [ref=f1e72]:
+                - group "recovery" [ref=f1e136]:
+                  - generic [ref=f1e137]:
+                    - generic [ref=f1e138]: "Please save the following recovery codes in a safe place. They will only be shown once, but you'll need them if you lose access to your authenticator app:"
+                    - list [ref=f1e143]:
+                      - listitem [ref=f1e144]:
+                        - generic [ref=f1e145]: YQHumXbZRc-24j8pdoALJ
+                      - listitem [ref=f1e146]:
+                        - generic [ref=f1e147]: T7LxJALYdb-MXEC6xG92b
+                      - listitem [ref=f1e148]:
+                        - generic [ref=f1e149]: C5edzp2i1S-SPHoR5TDKe
+                      - listitem [ref=f1e150]:
+                        - generic [ref=f1e151]: xPXrrbVvOD-NzOSOhuXaR
+                      - listitem [ref=f1e152]:
+                        - generic [ref=f1e153]: 5vfEdw1vKL-nEu697jQJ4
+                      - listitem [ref=f1e154]:
+                        - generic [ref=f1e155]: j0MwpUTbun-qhjcLr3OLg
+                      - listitem [ref=f1e156]:
+                        - generic [ref=f1e157]: JSthKuH64M-ZpRs3dHCeR
+                      - listitem [ref=f1e158]:
+                        - generic [ref=f1e159]: cAV22n7PA6-1tsgeBkdgj
+                    - generic [ref=f1e162]:
+                      - text: Click to
+                      - button "copy" [ref=f1e163] [cursor=pointer]
+                      - text: or
+                      - link "download" [ref=f1e165] [cursor=pointer]:
+                        - /url: data:application/octet-stream,…
+                      - text: all the codes at once.
+                - generic [ref=f1e131]:
+                  - button "Back" [ref=f1e168] [cursor=pointer]
+                  - button "Enable authenticator app" [ref=f1e170] [cursor=pointer]
+  - generic:
+    - status
