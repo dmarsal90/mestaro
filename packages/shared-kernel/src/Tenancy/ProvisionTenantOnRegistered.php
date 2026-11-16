@@ -21,6 +21,7 @@ final readonly class ProvisionTenantOnRegistered implements EventHandler
         private TenantDatabaseCreator $creator,
         private TenantCredentials $credentials,
         private Outbox $outbox,
+        private MigrateTenant $migrate,
     ) {}
 
     public function handle(string $entryId, array $fields): void
@@ -46,6 +47,15 @@ final readonly class ProvisionTenantOnRegistered implements EventHandler
             report($e);
             // The reason is shown in platform's admin API: never put driver messages in it.
             $this->outbox->record('TenantProvisioningFailed', ['tenant_id' => $tenant, 'service' => $service, 'reason' => 'database creation failed']);
+
+            return;
+        }
+
+        try {
+            ($this->migrate)($tenant);
+        } catch (Throwable $e) {
+            report($e);
+            $this->outbox->record('TenantProvisioningFailed', ['tenant_id' => $tenant, 'service' => $service, 'reason' => 'database migration failed']);
 
             return;
         }

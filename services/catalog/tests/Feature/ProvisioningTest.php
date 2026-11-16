@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Mestaro\Kernel\Tenancy\PostgresTenantDatabaseCreator;
+use Mestaro\Kernel\Tenancy\TenantCredentials;
 use Mestaro\Kernel\Tenancy\TenantDatabaseCreator;
 
 const TENANT = '01JABCDEFGHJKMNPQRSTVWXYZ0';
@@ -81,4 +82,18 @@ it('drops registrations with an invalid tenant id and ignores other events', fun
 
     expect(answers())->toBe([])
         ->and((int) (Redis::xpending(config('events.stream'), config('kernel.service'))[0] ?? 0))->toBe(0);
+});
+
+it('migrates the tenant database when provisioning, and tenants:migrate is safe to repeat', function () {
+    publishEvent('TenantRegistered', TENANT);
+    consume();
+    $this->artisan('tenants:migrate')->assertSuccessful();
+
+    $password = app(TenantCredentials::class)->existingPasswordFor(TENANT, config('kernel.service'));
+    $db = DB::connectUsing('tenant-check', [...config('database.connections.pgsql'), 'database' => tenantDatabase(TENANT), 'username' => tenantDatabase(TENANT), 'password' => $password], true);
+
+    expect($db->getSchemaBuilder()->hasTable('zones'))->toBeTrue()
+        ->and($db->getSchemaBuilder()->hasTable('tables'))->toBeTrue()
+        ->and($db->table('migrations')->count())->toBe(1)
+        ->and(array_column(answers(), 0))->toBe(['TenantProvisioned']);
 });
