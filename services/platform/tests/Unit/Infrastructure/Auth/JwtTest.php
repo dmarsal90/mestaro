@@ -28,7 +28,11 @@ it('round-trips claims through issue and verify', function () {
     $keys = newKeys();
     $token = (new JwtIssuer($keys, 'platform', 'mestaro', 600))->issue(claims());
 
-    expect(verifierFor($keys)->verify($token))->toEqual(claims());
+    $verified = verifierFor($keys)->verify($token);
+
+    expect([$verified->userId, $verified->tenantId, $verified->role, $verified->permissions])->toBe(['user-1', '01HTENANT', 'waiter', ['orders.create', 'orders.view']])
+        ->and($verified->jti)->not->toBe('')
+        ->and($verified->expiresAt - $verified->issuedAt)->toBe(600);
 });
 
 it('issues a ten minute token with kid and jti', function () {

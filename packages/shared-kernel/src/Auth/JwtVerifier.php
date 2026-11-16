@@ -39,12 +39,13 @@ final readonly class JwtVerifier
             || ($p->iss ?? null) !== $this->issuer
             || ! in_array($this->audience, (array) ($p->aud ?? []), true)
             || ! is_string($p->sub ?? null) || $p->sub === ''
+            || ! is_string($p->jti ?? null) || $p->jti === '' || ! is_int($p->iat ?? null)
             || ! is_string($p->role ?? null)
             || ! (is_null($p->tenant_id ?? null) || is_string($p->tenant_id))
             || ! is_array($permissions) || array_filter($permissions, 'is_string') !== $permissions) {
             throw new InvalidToken('Invalid claims.');
         }
 
-        return new AccessClaims($p->sub, $p->tenant_id ?? null, $p->role, array_values($permissions));
+        return new AccessClaims($p->sub, $p->tenant_id ?? null, $p->role, array_values($permissions), $p->jti, $p->iat, $p->exp);
     }
 }

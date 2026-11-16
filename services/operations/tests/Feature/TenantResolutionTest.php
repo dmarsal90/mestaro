@@ -24,7 +24,7 @@ function tokenFor(?string $tenant, ?string $secret = null): string
     $now = time();
 
     return JWT::encode([
-        'iss' => 'mestaro-platform', 'aud' => 'mestaro', 'sub' => '01JUSER', 'iat' => $now, 'exp' => $now + 600,
+        'iss' => 'mestaro-platform', 'aud' => 'mestaro', 'sub' => '01JUSER', 'iat' => $now, 'exp' => $now + 600, 'jti' => bin2hex(random_bytes(8)),
         'tenant_id' => $tenant, 'role' => 'restaurant_admin', 'permissions' => [],
     ], JWT::urlsafeB64Encode($secret), 'EdDSA', 'k1');
 }

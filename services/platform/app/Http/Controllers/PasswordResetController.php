@@ -8,12 +8,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules\Password as PasswordRule;
+use Mestaro\Kernel\Auth\TokenDenylist;
 use Mestaro\Kernel\Http\ApiError;
 use Throwable;
 
 final class PasswordResetController
 {
-    public function __construct(private AuditTrail $audit) {}
+    public function __construct(private AuditTrail $audit, private TokenDenylist $denylist) {}
 
     public function forgot(Request $request): JsonResponse
     {
@@ -45,6 +46,7 @@ final class PasswordResetController
             function (User $user, string $password) use (&$actor) {
                 $user->forceFill(['password' => $password])->save();
                 $user->tokens()->delete(); // every open session ends: the reset may follow a compromise
+                $this->denylist->revokeUser($user->public_id);
                 $actor = $user->public_id;
             },
         );
