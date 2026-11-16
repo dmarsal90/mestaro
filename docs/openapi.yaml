@@ -513,6 +513,359 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /categories:
+    x-service: catalog
+    get:
+      summary: Categorías de la carta
+      description: Cualquier personal del restaurante.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Category' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Crear una categoría
+      description: Requiere `menu.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80 }
+                description: { type: [string, 'null'], maxLength: 500 }
+                sort_order: { type: integer, minimum: 0, maximum: 65535 }
+      responses:
+        '201':
+          description: Creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Category'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /categories/{id}:
+    x-service: catalog
+    patch:
+      summary: Cambiar una categoría (se desactiva, no se borra)
+      description: Requiere `menu.manage`. No admite productos nuevos si está inactiva.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 80 }
+                description: { type: [string, 'null'], maxLength: 500 }
+                sort_order: { type: integer, minimum: 0, maximum: 65535 }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Category'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /products:
+    x-service: catalog
+    get:
+      summary: Productos con sus variantes y complementos
+      description: Cualquier personal. Filtro opcional `category_id`. Los borrados no aparecen.
+      parameters:
+        - { name: category_id, in: query, required: false, schema: { $ref: '#/components/schemas/Ulid' } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Product' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Crear un producto
+      description: Requiere `menu.manage`. La categoría debe estar activa (`422 INVALID_CATEGORY`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category_id, name, price]
+              properties:
+                category_id: { $ref: '#/components/schemas/Ulid' }
+                name: { type: string, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 1000 }
+                price: { type: integer, minimum: 0, maximum: 100000000, description: Unidad mínima (céntimos) }
+                tax_bps: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
+                destination: { type: string, enum: [kitchen, bar, other] }
+                allergens: { type: array, maxItems: 14, uniqueItems: true, items: { $ref: '#/components/schemas/Allergen' } }
+                ingredients: { type: array, maxItems: 40, items: { type: string, maxLength: 60 } }
+                available_from: { type: [string, 'null'], pattern: '^[0-2][0-9]:[0-5][0-9]$', description: Hora local del restaurante }
+                available_until: { type: [string, 'null'], pattern: '^[0-2][0-9]:[0-5][0-9]$' }
+                is_available: { type: boolean }
+                is_sold_out: { type: boolean }
+                sort_order: { type: integer, minimum: 0, maximum: 65535 }
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Product'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /products/{id}:
+    x-service: catalog
+    patch:
+      summary: Cambiar un producto, su disponibilidad o su horario
+      description: Requiere `menu.manage`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category_id: { $ref: '#/components/schemas/Ulid' }
+                name: { type: string, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 1000 }
+                price: { type: integer, minimum: 0, maximum: 100000000, description: Unidad mínima (céntimos) }
+                tax_bps: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
+                destination: { type: string, enum: [kitchen, bar, other] }
+                allergens: { type: array, maxItems: 14, uniqueItems: true, items: { $ref: '#/components/schemas/Allergen' } }
+                ingredients: { type: array, maxItems: 40, items: { type: string, maxLength: 60 } }
+                available_from: { type: [string, 'null'], pattern: '^[0-2][0-9]:[0-5][0-9]$', description: Hora local del restaurante }
+                available_until: { type: [string, 'null'], pattern: '^[0-2][0-9]:[0-5][0-9]$' }
+                is_available: { type: boolean }
+                is_sold_out: { type: boolean }
+                sort_order: { type: integer, minimum: 0, maximum: 65535 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Product'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Borrar un producto (borrado lógico)
+      description: Requiere `menu.manage`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '204': { description: Borrado }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /products/{productId}/variants:
+    x-service: catalog
+    post:
+      summary: Añadir una variante al producto
+      description: Requiere `menu.manage`.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80 }
+                price_delta: { type: integer, minimum: 0, maximum: 100000000 }
+                is_default: { type: boolean, description: Solo una por producto; marcar una desmarca las demás }
+                is_available: { type: boolean }
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Variant'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /products/{productId}/variants/{id}:
+    x-service: catalog
+    patch:
+      summary: Cambiar una variante
+      description: Requiere `menu.manage`.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 80 }
+                price_delta: { type: integer, minimum: 0, maximum: 100000000 }
+                is_default: { type: boolean, description: Solo una por producto; marcar una desmarca las demás }
+                is_available: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Variant'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Borrar una variante
+      description: Requiere `menu.manage`.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '204': { description: Borrado }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /products/{productId}/addons:
+    x-service: catalog
+    post:
+      summary: Añadir un complemento al producto
+      description: Requiere `menu.manage`.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80 }
+                price: { type: integer, minimum: 0, maximum: 100000000 }
+                max_quantity: { type: integer, minimum: 1, maximum: 100 }
+                is_available: { type: boolean }
+      responses:
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Addon'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /products/{productId}/addons/{id}:
+    x-service: catalog
+    patch:
+      summary: Cambiar un complemento
+      description: Requiere `menu.manage`.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 80 }
+                price: { type: integer, minimum: 0, maximum: 100000000 }
+                max_quantity: { type: integer, minimum: 1, maximum: 100 }
+                is_available: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Addon'
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Borrar un complemento
+      description: Requiere `menu.manage`.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '204': { description: Borrado }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
     bearerAuth:
@@ -552,6 +905,56 @@ components:
         is_active: { type: boolean }
         qr_token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
         qr_rotated_at: { type: [string, 'null'] }
+    Allergen:
+      type: string
+      enum: [gluten, crustaceans, eggs, fish, peanuts, soy, milk, nuts, celery, mustard, sesame, sulphites, lupin, molluscs]
+    Category:
+      type: object
+      required: [id, name, description, sort_order, is_active]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        sort_order: { type: integer }
+        is_active: { type: boolean }
+    Variant:
+      type: object
+      required: [id, name, price_delta, is_default, is_available]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        price_delta: { type: integer }
+        is_default: { type: boolean }
+        is_available: { type: boolean }
+    Addon:
+      type: object
+      required: [id, name, price, max_quantity, is_available]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        price: { type: integer }
+        max_quantity: { type: integer }
+        is_available: { type: boolean }
+    Product:
+      type: object
+      required: [id, category_id, name, description, price, tax_bps, destination, allergens, ingredients, available_from, available_until, is_available, is_sold_out, sort_order, variants, addons]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        category_id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        price: { type: integer }
+        tax_bps: { type: [integer, 'null'] }
+        destination: { type: string, enum: [kitchen, bar, other] }
+        allergens: { type: array, items: { $ref: '#/components/schemas/Allergen' } }
+        ingredients: { type: array, items: { type: string } }
+        available_from: { type: [string, 'null'] }
+        available_until: { type: [string, 'null'] }
+        is_available: { type: boolean }
+        is_sold_out: { type: boolean }
+        sort_order: { type: integer }
+        variants: { type: array, items: { $ref: '#/components/schemas/Variant' } }
+        addons: { type: array, items: { $ref: '#/components/schemas/Addon' } }
     StaffRole:
       type: string
       enum: [restaurant_admin, manager, waiter, kitchen, bar]
