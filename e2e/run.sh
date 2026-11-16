@@ -127,7 +127,8 @@ RES=$(wait_for "$ID2" active) && ok "retry converged to active ($RES)" || bad "r
 step "gateway routing by prefix"
 for p in zones orders payments kds webhooks; do
     code=$(curl -s "$G/api/v1/$p" | json 'd["error"]["code"]' 2>/dev/null || echo "not-a-service-answer")
-    check "/$p reaches its service" test "$code" = NOT_FOUND
+    # Any error envelope proves the service answered: routes that exist answer UNAUTHENTICATED, the rest NOT_FOUND.
+    check "/$p reaches its service" test "$code" = NOT_FOUND -o "$code" = UNAUTHENTICATED
 done
 UNKNOWN=$(curl -s -w '\n%{http_code}' "$G/api/v1/nonexistent")
 check "an unknown prefix is answered by the gateway, not a service" test "$(echo "$UNKNOWN" | tail -1)" = 404 -a "$(echo "$UNKNOWN" | grep -c '"error"')" = 0
