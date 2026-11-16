@@ -24,7 +24,8 @@
         "pestphp/pest": "^4.7",
         "pestphp/pest-plugin-arch": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.1",
-        "phpunit/phpunit": "^12.5.12"
+        "phpunit/phpunit": "^12.5.12",
+        "symfony/yaml": "^8.1"
     },
     "autoload": {
         "psr-4": {

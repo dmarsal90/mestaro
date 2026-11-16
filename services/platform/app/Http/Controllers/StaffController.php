@@ -37,7 +37,7 @@ final class StaffController
         if ($user === null) {
             try {
                 // Random password nobody knows: the person sets their own through the reset link below.
-                $user = User::create(['name' => $request->string('name')->toString(), 'email' => $email, 'password' => Str::random(40)])->refresh(); // refresh: column defaults (is_active) are not on the new instance
+                $user = DB::transaction(fn () => User::create(['name' => $request->string('name')->toString(), 'email' => $email, 'password' => Str::random(40)]))->refresh(); // refresh: column defaults (is_active) are not on the new instance
                 $isNew = true;
             } catch (UniqueConstraintViolationException) {
                 $user = User::where('email', $email)->firstOrFail(); // lost a race with another invitation
@@ -49,10 +49,11 @@ final class StaffController
         }
 
         try {
-            DB::table('restaurant_user')->insert([
+            // A transaction (a savepoint when nested) so catching the duplicate leaves the connection usable.
+            DB::transaction(fn () => DB::table('restaurant_user')->insert([
                 'restaurant_id' => $claims->tenantId, 'user_id' => $user->id, 'role_id' => $this->roleId($request->string('role')->toString()),
                 'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
-            ]);
+            ]));
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('ALREADY_MEMBER', 'This person already belongs to the restaurant.', 409);
         }
