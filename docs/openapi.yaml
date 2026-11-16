@@ -1,16 +1,170 @@
 openapi: 3.1.0
 info:
   title: Mestaro API
-  version: 0.1.0
-  description: Borrador de la Fase 1. Define convenciones y esquemas comunes; los endpoints se completan por fase.
+  version: 0.2.0
+  description: |
+    Contrato de `platform` (auth, ajustes, personal, administración de restaurantes). Los demás servicios
+    añaden sus endpoints en su fase. `tests/Feature/OpenApiContractTest.php` comprueba que cada ruta existe aquí
+    y que las respuestas reales cumplen estos esquemas.
 servers:
   - url: /api/v1
 security:
   - bearerAuth: []
 paths:
+  /auth/login:
+    post:
+      summary: Iniciar sesión
+      description: >
+        Administradores de plataforma y personal con membresía activa. Si el personal pertenece a varios
+        restaurantes, responde la lista y el cliente repite la petición con `restaurant_id`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, maxLength: 1024 }
+                restaurant_id: { $ref: '#/components/schemas/Ulid' }
+      responses:
+        '200':
+          description: Tokens, o restaurantes entre los que elegir
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TokensResponse'
+                  - $ref: '#/components/schemas/RestaurantChoiceResponse'
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/refresh:
+    post:
+      summary: Renovar tokens (el refresh token es de un solo uso)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string, maxLength: 255 }
+      responses:
+        '200':
+          description: Tokens nuevos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokensResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post:
+      summary: Cerrar sesión (revoca refresh tokens y el JWT usado)
+      responses:
+        '204': { description: Sesión cerrada }
+        '401': { $ref: '#/components/responses/Error' }
   /auth/me:
     get:
-      summary: Usuario autenticado
+      summary: Usuario autenticado y su ámbito
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Error' }
+  /auth/forgot-password:
+    post:
+      summary: Pedir enlace de recuperación (responde igual exista o no la cuenta)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        '202': { description: Aceptada }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/reset-password:
+    post:
+      summary: Fijar contraseña nueva con el token del enlace (cierra todas las sesiones)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, token, password, password_confirmation]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                token: { type: string, maxLength: 255 }
+                password: { type: string, minLength: 12, maxLength: 1024 }
+                password_confirmation: { type: string }
+      responses:
+        '204': { description: Contraseña cambiada }
+        '422':
+          description: Datos inválidos o `INVALID_RESET_TOKEN`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /settings:
+    get:
+      summary: Ajustes del restaurante del token
+      description: Cualquier personal del restaurante. Sin fila guardada devuelve los valores por defecto.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Settings' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    patch:
+      summary: Cambiar ajustes (parcial)
+      description: Requiere el permiso `restaurant.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsUpdate' }
+      responses:
+        '200':
+          description: Ajustes resultantes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Settings' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /staff:
+    get:
+      summary: Personal del restaurante del token
+      description: Requiere el permiso `users.manage`.
       responses:
         '200':
           description: OK
@@ -21,9 +175,137 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Error'
+                    type: array
+                    items: { $ref: '#/components/schemas/StaffMember' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Dar de alta a una persona
+      description: >
+        Requiere `users.manage`. Responde `201` igual para cuentas nuevas, existentes o desactivadas. A las
+        nuevas se les envía el enlace para fijar su contraseña.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, role]
+              properties:
+                name: { type: string, maxLength: 120 }
+                email: { type: string, format: email, maxLength: 254 }
+                role: { $ref: '#/components/schemas/StaffRole' }
+      responses:
+        '201': { description: Aceptada }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409':
+          description: '`ALREADY_MEMBER`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /staff/{id}:
+    patch:
+      summary: Cambiar rol o acceso (revoca sus JWT abiertos en este restaurante)
+      description: Requiere `users.manage`. Nadie puede modificarse a sí mismo (`CANNOT_MODIFY_SELF`).
+      parameters:
+        - { name: id, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { $ref: '#/components/schemas/StaffRole' }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: Miembro actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/StaffMember' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /admin/restaurants:
+    post:
+      summary: Registrar un restaurante (inicia la provisión)
+      description: Solo administradores de plataforma.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name: { type: string, maxLength: 120 }
+                slug: { type: string, pattern: '^[a-z][a-z0-9]{2,29}$' }
+      responses:
+        '202':
+          description: Registrado; queda en `provisioning`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestaurantResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409':
+          description: '`SLUG_TAKEN`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /admin/restaurants/{id}:
+    get:
+      summary: Consultar un restaurante
+      parameters:
+        - { $ref: '#/components/parameters/RestaurantId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestaurantResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /admin/restaurants/{id}/suspend:
+    post:
+      summary: Suspender un restaurante activo
+      parameters:
+        - { $ref: '#/components/parameters/RestaurantId' }
+      responses:
+        '200':
+          description: Suspendido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestaurantResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /admin/restaurants/{id}/retry-provisioning:
+    post:
+      summary: Reintentar la provisión de un restaurante en `provisioning_failed`
+      parameters:
+        - { $ref: '#/components/parameters/RestaurantId' }
+      responses:
+        '202':
+          description: Reintento en curso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestaurantResponse' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
     bearerAuth:
@@ -32,7 +314,8 @@ components:
   schemas:
     Ulid:
       type: string
-      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      description: Los ids de usuario salen en minúsculas y los de restaurante en mayúsculas; se comparan tal cual, sin normalizar.
+      pattern: '^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$'
     Money:
       type: object
       required: [amount, currency]
@@ -43,13 +326,145 @@ components:
         currency:
           type: string
           pattern: '^[A-Z]{3}$'
-    User:
+    StaffRole:
+      type: string
+      enum: [restaurant_admin, manager, waiter, kitchen, bar]
+    Tokens:
       type: object
-      required: [id, name, email]
+      required: [access_token, token_type, expires_in, refresh_token]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer }
+        refresh_token: { type: string }
+    TokensResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Tokens' }
+    RestaurantChoiceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [restaurants]
+          properties:
+            restaurants:
+              type: array
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { $ref: '#/components/schemas/Ulid' }
+                  name: { type: string }
+    Me:
+      type: object
+      required: [id, name, email, role, tenant_id, permissions]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         name: { type: string }
         email: { type: string, format: email }
+        role: { type: string }
+        tenant_id: { type: [string, 'null'] }
+        permissions:
+          type: array
+          items: { type: string }
+    StaffMember:
+      type: object
+      required: [id, name, email, role, is_active]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/StaffRole' }
+        is_active: { type: boolean }
+    OpeningHours:
+      type: object
+      description: Por día de la semana, hasta 4 tramos `HH:MM`.
+      additionalProperties: false
+      properties:
+        mon: { $ref: '#/components/schemas/DayRanges' }
+        tue: { $ref: '#/components/schemas/DayRanges' }
+        wed: { $ref: '#/components/schemas/DayRanges' }
+        thu: { $ref: '#/components/schemas/DayRanges' }
+        fri: { $ref: '#/components/schemas/DayRanges' }
+        sat: { $ref: '#/components/schemas/DayRanges' }
+        sun: { $ref: '#/components/schemas/DayRanges' }
+    DayRanges:
+      type: array
+      maxItems: 4
+      items:
+        type: object
+        required: [open, close]
+        additionalProperties: false
+        properties:
+          open: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+          close: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+    Settings:
+      type: object
+      required:
+        - currency
+        - timezone
+        - locale
+        - opening_hours
+        - auto_accept_orders
+        - require_waiter_approval_for_session
+        - prices_include_tax
+        - default_tax_bps
+        - join_code_reuse_cooldown_minutes
+        - order_alert_threshold_seconds
+        - preferences
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        timezone: { type: string }
+        locale: { type: string, pattern: '^[a-z]{2,3}(-[A-Z]{2})?$' }
+        opening_hours:
+          oneOf:
+            - { $ref: '#/components/schemas/OpeningHours' }
+            - { type: 'null' }
+        auto_accept_orders: { type: boolean }
+        require_waiter_approval_for_session: { type: boolean }
+        prices_include_tax: { type: boolean }
+        default_tax_bps: { type: integer, minimum: 0, maximum: 10000 }
+        join_code_reuse_cooldown_minutes: { type: integer, minimum: 0, maximum: 1440 }
+        order_alert_threshold_seconds: { type: integer, minimum: 30, maximum: 86400 }
+        preferences:
+          type: [object, 'null']
+          description: Hasta 8 KB de JSON.
+    SettingsUpdate:
+      type: object
+      description: Todos los campos son opcionales; solo se cambian los enviados.
+      additionalProperties: false
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        timezone: { type: string }
+        locale: { type: string, pattern: '^[a-z]{2,3}(-[A-Z]{2})?$' }
+        opening_hours:
+          oneOf:
+            - { $ref: '#/components/schemas/OpeningHours' }
+            - { type: 'null' }
+        auto_accept_orders: { type: boolean }
+        require_waiter_approval_for_session: { type: boolean }
+        prices_include_tax: { type: boolean }
+        default_tax_bps: { type: integer, minimum: 0, maximum: 10000 }
+        join_code_reuse_cooldown_minutes: { type: integer, minimum: 0, maximum: 1440 }
+        order_alert_threshold_seconds: { type: integer, minimum: 30, maximum: 86400 }
+        preferences: { type: [object, 'null'] }
+    Restaurant:
+      type: object
+      required: [id, name, slug, status, failure_reason]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        slug: { type: string, pattern: '^[a-z][a-z0-9]{2,29}$' }
+        status: { type: string, enum: [provisioning, active, provisioning_failed, suspended] }
+        failure_reason: { type: [string, 'null'] }
+    RestaurantResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Restaurant' }
     PageMeta:
       type: object
       required: [page, per_page, total, last_page]
@@ -88,6 +503,11 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   parameters:
+    RestaurantId:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Ulid' }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
