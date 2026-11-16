@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RestaurantAdminController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\StaffController;
 use App\Http\Middleware\AuthenticateJwt;
 use App\Http\Middleware\RequirePlatformAdmin;
 use App\Http\Middleware\RequireTenant;
@@ -29,4 +30,10 @@ Route::prefix('admin')->middleware(['throttle:60,1', AuthenticateJwt::class, Req
 Route::prefix('settings')->middleware(['throttle:60,1', AuthenticateJwt::class])->group(function () {
     Route::get('/', [SettingsController::class, 'show'])->middleware(RequireTenant::class);
     Route::patch('/', [SettingsController::class, 'update'])->middleware(RequireTenant::class.':restaurant.manage');
+});
+
+Route::prefix('staff')->middleware(['throttle:60,1', AuthenticateJwt::class, RequireTenant::class.':users.manage'])->group(function () {
+    Route::get('/', [StaffController::class, 'index']);
+    Route::post('/', [StaffController::class, 'store']);
+    Route::patch('{id}', [StaffController::class, 'update'])->whereUlid('id');
 });

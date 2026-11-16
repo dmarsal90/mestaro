@@ -52,3 +52,14 @@ it('fails closed when the denylist cannot be read', function () {
 
     $this->getJson('/api/v1/auth/me', ['Authorization' => "Bearer $token"])->assertStatus(503)->assertJsonPath('error.code', 'AUTH_UNAVAILABLE');
 });
+
+it('revokes a user only inside the restaurant given', function () {
+    $deny = app(TokenDenylist::class);
+    $user = bin2hex(random_bytes(8));
+    $deny->revokeUser($user, 'rest-a');
+    $issued = time() - 5;
+
+    expect($deny->isRevoked(new AccessClaims($user, 'rest-a', 'waiter', [], 'a1', $issued, time() + 600)))->toBeTrue()
+        ->and($deny->isRevoked(new AccessClaims($user, 'rest-b', 'waiter', [], 'b1', $issued, time() + 600)))->toBeFalse()
+        ->and($deny->isRevoked(new AccessClaims($user, null, 'platform_admin', [], 'c1', $issued, time() + 600)))->toBeFalse();
+});
