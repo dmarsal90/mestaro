@@ -1,0 +1,27 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - link "Skip to content" [ref=f1e3] [cursor=pointer]:
+      - /url: "#fi-main-content"
+    - button "User menu" [ref=f1e9] [cursor=pointer]:
+      - img "Avatar of Tmp Admin" [ref=f1e10]
+    - main [ref=f1e12]:
+      - generic [ref=f1e14]:
+        - generic [ref=f1e15]:
+          - generic [ref=f1e16]: Mestaro
+          - heading "Set up two-factor authentication" [level=1] [ref=f1e17]
+          - paragraph [ref=f1e18]: 2FA adds an extra layer of security to your account by requiring a second form of verification when signing in.
+        - generic [ref=f1e19]:
+          - generic [ref=f1e32]:
+            - generic [ref=f1e33]:
+              - generic [ref=f1e34]: Authenticator app
+              - generic [ref=f1e35]: Enabled
+            - generic [ref=f1e41]:
+              - button "Regenerate recovery codes" [active] [ref=f1e171] [cursor=pointer]
+              - button "Turn off" [ref=f1e172] [cursor=pointer]
+            - generic [ref=f1e46]: Use a secure app to generate a temporary code for login verification.
+          - button "Continue" [ref=f1e180] [cursor=pointer]
+  - generic:
+    - status:
+      - generic [ref=f1e181]:
+        - heading "Authenticator app has been enabled" [level=3] [ref=f1e186]
+        - button "Close notification" [ref=f1e187] [cursor=pointer]

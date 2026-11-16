@@ -233,6 +233,7 @@ services:
     ports: ["${GATEWAY_PORT:-8100}:80"]
     volumes:
       - ./docker/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./services/platform/public:/var/www/platform-public:ro # Filament's published assets
     depends_on: [platform, catalog, operations, billing]
     networks: [internal, edge]
 

@@ -4,11 +4,11 @@
 
 arch('domain does not depend on the framework')
     ->expect('App\Domain')
-    ->not->toUse(['Illuminate', 'App\Application', 'App\Infrastructure', 'App\Http', 'App\Console']);
+    ->not->toUse(['Illuminate', 'Filament', 'App\Application', 'App\Infrastructure', 'App\Http', 'App\Console', 'App\Filament']);
 
 arch('application depends only on the domain')
     ->expect('App\Application')
-    ->not->toUse(['App\Infrastructure', 'App\Http', 'App\Console']);
+    ->not->toUse(['Filament', 'App\Infrastructure', 'App\Http', 'App\Console', 'App\Filament']);
 
 arch('no debug leftovers')
     ->expect(['dd', 'dump', 'var_dump', 'ray'])

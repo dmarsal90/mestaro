@@ -8,6 +8,6 @@ build: ; $(DC) build
 sh:    ; $(DC) exec $(s) sh
 art:   ; $(DC) exec $(s) php artisan $(c)
 comp:  ; $(DC) exec $(s) composer $(c)
-test:  ; $(DC) exec $(s) vendor/bin/pest $(a)
+test:  ; $(DC) exec -e APP_ENV=testing $(s) vendor/bin/pest $(a) # testing, as in CI (compose sets local; some libraries, e.g. Filament, only act in testing)
 e2e:   ; bash e2e/run.sh
 lint:  ; $(DC) exec $(s) sh -c 'vendor/bin/pint --test && vendor/bin/phpstan analyse --memory-limit=1G'
