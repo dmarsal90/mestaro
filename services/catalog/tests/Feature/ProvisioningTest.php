@@ -94,6 +94,6 @@ it('migrates the tenant database when provisioning, and tenants:migrate is safe 
 
     expect($db->getSchemaBuilder()->hasTable('zones'))->toBeTrue()
         ->and($db->getSchemaBuilder()->hasTable('tables'))->toBeTrue()
-        ->and($db->table('migrations')->count())->toBe(1)
+        ->and($db->table('migrations')->count())->toBe(count(glob(database_path('tenant/*.php'))))
         ->and(array_column(answers(), 0))->toBe(['TenantProvisioned']);
 });

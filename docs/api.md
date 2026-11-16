@@ -47,7 +47,7 @@ Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, tok
 | Restaurantes | `GET /restaurants`, `GET/PATCH /restaurants/{id}` | `restaurant.manage` |
 | Usuarios | `GET/POST /users`, `GET/PATCH /users/{id}` | `users.manage` |
 | Zonas y mesas | `GET/POST /zones`, `PATCH /zones/{id}`, `GET/POST /tables`, `PATCH /tables/{id}`, `POST /tables/{id}/qr/rotate` | Lectura: cualquier personal; escritura: `floor.manage`. `qr_token` solo se devuelve con `floor.manage`. Nombre de zona y etiqueta de mesa únicos (`409`); no se crean mesas en zonas inactivas (`422 INVALID_ZONE`); rotar el QR invalida el anterior |
-| Menú | `/categories`, `/products`, `/products/{id}/variants`, `/products/{id}/addons` | `menu.manage`; lectura pública vía sesión |
+| Menú | `GET/POST /categories`, `PATCH /categories/{id}`, `GET/POST /products`, `PATCH/DELETE /products/{id}`, `POST /products/{id}/variants\|addons`, `PATCH/DELETE /products/{id}/variants\|addons/{id}` | Lectura: cualquier personal; escritura: `menu.manage`; la lectura pública del cliente QR llega en la Fase 4. Precios en unidad mínima (entero); alérgenos: los 14 de la UE; horario `HH:MM` en la zona horaria del restaurante; `is_available`, `is_sold_out` y horario se cambian con `PATCH`; borrado lógico de productos; una sola variante por defecto; `409` por nombres duplicados, `422 INVALID_CATEGORY` |
 | Público QR | `GET /public/tables/{qr_token}`, `POST /public/tables/{qr_token}/sessions`, `POST /public/sessions/join` | pública con rate limit |
 | Sesión | `GET /session`, `POST /session/close` | participante / personal |
 | Pedidos | `POST /orders`, `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/accept\|reject\|cancel` | participante / `orders.*` |
