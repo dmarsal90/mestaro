@@ -13,6 +13,7 @@ use App\Infrastructure\Auth\JwtKeys;
 use App\Infrastructure\Messaging\OutboxEventPublisher;
 use App\Infrastructure\Messaging\PlatformEventHandler;
 use App\Infrastructure\Tenancy\DatabaseRestaurantRepository;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -51,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Per account+IP stops password guessing; the per-IP cap stops spraying many accounts.
+        // shortcut: the reset link points at this API's host until the Vue shell has its own route; change with the frontend in 3d.
+        ResetPassword::createUrlUsing(fn ($user, string $token) => config('app.url').'/reset-password?'.http_build_query(['token' => $token, 'email' => $user->email]));
+
         RateLimiter::for('login', fn (Request $request) => [
             Limit::perMinute(5)->by(strtolower(is_string($email = $request->input('email')) ? $email : '').'|'.$request->ip()),
             Limit::perMinute(30)->by($request->ip()),
