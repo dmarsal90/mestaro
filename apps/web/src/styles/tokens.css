@@ -1,0 +1,122 @@
+/* Single source of truth for design tokens (docs/UI_UX_BRIEF.md §6, §11). Verified by tests/tokens.test.ts.
+   1. Palette: raw colours, same in both modes.  2. Semantic roles: what components use, per mode.  3. Scales.
+   Components use roles and scales only: no hex literals. */
+:root {
+    /* Palette: Forged Carbon / Titanium Silver / Modena Yellow */
+    --carbon-dark: #17191b;
+    --carbon: #202326;
+    --carbon-surface: #292d31;
+    --carbon-border: #393e43;
+    --titanium-deep: #4f565d;
+    --titanium-muted: #858d95;
+    --titanium: #b8bdc3;
+    --titanium-light: #d9dde1;
+    --white: #ffffff;
+    --modena: #f2c300;
+    --modena-hover: #d9ae00;
+    /* Status: light tints for dark surfaces, strong shades for white cards. Never the only signal: always with text or icon. */
+    --success: #4cc38a;
+    --warning: #f5a524;
+    --danger: #ff6b6b;
+    --info: #5aa9ff;
+    --success-strong: #1a7f4b;
+    --warning-strong: #8a5a00;
+    --danger-strong: #c42b2b;
+    --info-strong: #1c64c4;
+
+    /* Roles, dark (reference mode) */
+    --bg: var(--carbon);
+    --bg-deep: var(--carbon-dark);
+    --surface: var(--carbon-surface);
+    --text: var(--white);
+    --text-muted: var(--titanium);
+    --border: var(--carbon-border);
+    --control-border: var(--titanium-muted);
+    --accent: var(--modena);
+    --accent-hover: var(--modena-hover);
+    --on-accent: var(--carbon);
+    --focus-ring: var(--modena);
+    --status-success: var(--success);
+    --status-warning: var(--warning);
+    --status-danger: var(--danger);
+    --status-info: var(--info);
+
+    /* Spacing: 4 px grid */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-12: 48px;
+    --space-16: 64px;
+    /* Radii */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-full: 9999px;
+    /* One subtle elevation, for overlays only; cards use borders */
+    --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.28);
+    /* Z-index scale */
+    --z-base: 0;
+    --z-sticky: 10;
+    --z-overlay: 20;
+    --z-modal: 30;
+    --z-toast: 40;
+    /* Motion */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --duration-fast: 120ms;
+    --duration-base: 200ms;
+    --duration-slow: 320ms;
+    /* Touch target for kitchen, POS and QR menu; 24 px is the WCAG minimum, 44 px the goal */
+    --touch-target: 44px;
+    color-scheme: dark;
+}
+
+/* Roles, light: cards are white on a Titanium Light page, so controls and status text live inside cards (UI_UX_BRIEF §11) */
+:root[data-theme='light'] {
+    --bg: var(--titanium-light);
+    --bg-deep: var(--white);
+    --surface: var(--white);
+    --text: var(--carbon);
+    --text-muted: var(--titanium-deep);
+    --border: var(--titanium-light);
+    --control-border: var(--titanium-muted);
+    --accent: var(--modena);
+    --accent-hover: var(--modena-hover);
+    --on-accent: var(--carbon);
+    --focus-ring: var(--carbon);
+    --status-success: var(--success-strong);
+    --status-warning: var(--warning-strong);
+    --status-danger: var(--danger-strong);
+    --status-info: var(--info-strong);
+    --shadow-overlay: 0 8px 24px rgb(32 35 38 / 0.16);
+    color-scheme: light;
+}
+
+/* Without a saved choice the system preference decides; the script in index.html sets data-theme before first paint. */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) {
+        --bg: var(--titanium-light);
+        --bg-deep: var(--white);
+        --surface: var(--white);
+        --text: var(--carbon);
+        --text-muted: var(--titanium-deep);
+        --border: var(--titanium-light);
+        --focus-ring: var(--carbon);
+        --status-success: var(--success-strong);
+        --status-warning: var(--warning-strong);
+        --status-danger: var(--danger-strong);
+        --status-info: var(--info-strong);
+        --shadow-overlay: 0 8px 24px rgb(32 35 38 / 0.16);
+        color-scheme: light;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --duration-fast: 0ms;
+        --duration-base: 0ms;
+        --duration-slow: 0ms;
+    }
+}
