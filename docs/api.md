@@ -35,7 +35,7 @@ Administración de plataforma (superadmin): `POST /admin/restaurants` (registra 
 
 El tenant sale del token; para personal con varios restaurantes, `X-Restaurant` selecciona uno que debe estar en las membresías del token. Nunca basta por sí solo.
 
-Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, token_type, expires_in, refresh_token } }`. El JWT dura 10 min; el refresh token es un token de Sanctum (hasheado en BD, 30 días, un solo uso: cada `refresh` lo rota). `logout` revoca los refresh tokens del usuario; el JWT vigente caduca por su TTL. Cualquier fallo de credenciales responde el mismo `401 UNAUTHENTICATED`. Por ahora solo inician sesión los administradores de plataforma; el personal de restaurante llega con membresías y roles.
+Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, token_type, expires_in, refresh_token } }`. El JWT dura 10 min; el refresh token es un token de Sanctum (hasheado en BD, 30 días, un solo uso: cada `refresh` lo rota). `logout` revoca los refresh tokens del usuario; el JWT vigente caduca por su TTL. Cualquier fallo de credenciales responde el mismo `401 UNAUTHENTICATED`. Inician sesión los administradores de plataforma y el personal con membresía activa en un restaurante `active`. Con varios restaurantes, `login` responde `{ data: { restaurants: [{ id, name }] } }` y el cliente repite la petición con `restaurant_id`. El JWT del personal lleva `tenant_id`, el rol y sus permisos; el refresh token recuerda el restaurante y relee rol y permisos en cada `refresh`, así que una membresía desactivada deja de renovarse.
 
 ## Endpoints (esqueleto)
 

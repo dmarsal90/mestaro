@@ -13,6 +13,7 @@ final class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email', 'max:254'],
             'password' => ['required', 'string', 'max:1024'],
+            'restaurant_id' => ['sometimes', 'string', 'size:26'],
         ];
     }
 }

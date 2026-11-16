@@ -17,6 +17,7 @@ final class AuthController
         return $this->tokens($sessions->login(
             strtolower($request->string('email')->toString()),
             $request->string('password')->toString(),
+            $request->has('restaurant_id') ? $request->string('restaurant_id')->toString() : null,
         ));
     }
 
