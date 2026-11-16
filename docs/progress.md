@@ -39,3 +39,10 @@ Hecho: auditoría de plataforma (`audit_logs`, solo inserción reforzada con tri
 Hecho: tokens de diseño en `apps/web/src/styles/tokens.css` con test de contraste WCAG AA (`apps/web/tests/tokens.test.ts`, antes `DesignTokensTest`) y assets de marca en `resources/brand/`. Regla: `--titanium-muted` (4,1:1 sobre `--carbon-surface`) solo para iconos o sobre `--carbon`.
 
 Pendiente de 2a: nada de producto; falta pushear `fix/docker-drop-gd` (build de `platform-worker`). El tema Filament que consume los tokens llega cuando se instale Filament.
+
+## Fase 3 (2026-11-16, PR #21-#35)
+
+Hecho: identidad del personal (login con elección de restaurante, recuperación de contraseña, denylist de JWT por restaurante), ajustes, personal con invitación y aceptación, contrato OpenAPI con test en `platform` y `catalog` (checker común en el kernel); migraciones por restaurante en el kernel; `catalog` con zonas, mesas, QR rotable, categorías, productos, variantes, complementos, disponibilidad y fotos; panel Filament de `platform` (2FA obligatorio); `apps/web` con tokens (modo claro/oscuro, `--titanium-deep`), 23 componentes del sistema de diseño con tests de accesibilidad y el *shell* del personal (login, sesión, guardas, layout, tema); marca recoloreada a Modena.
+
+Pendiente de Fase 3: panel Filament de `catalog` (ADR-013: necesita un puente de autenticación JWT y la BD del restaurante por petición; se recomienda reevaluarlo frente a las pantallas Vue); pantallas de trabajo en Vue (carta, salón, equipo, ajustes); tema Filament completo con tokens; servir `apps/web` desde el gateway; D-11 (animación de entrada, requiere autorización) y D-12 (objetivo LCP); evento del índice central de `qr_token` (Fase 4); listado y cancelación de invitaciones; recorte de re-codificación de fotos cuando haya extensión de imagen.
+
