@@ -704,6 +704,69 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /products/{id}/image:
+    x-service: catalog
+    post:
+      summary: Subir o reemplazar la foto del producto
+      description: >
+        Requiere `menu.manage`. `multipart/form-data` con `image` (JPEG, PNG o WebP según el contenido real, máx.
+        2 MB y 4000x4000 px). SVG y cualquier otro tipo se rechazan.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image: { type: string, format: binary }
+      responses:
+        '201':
+          description: Guardada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [image_url]
+                    properties:
+                      image_url: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Quitar la foto del producto
+      description: Requiere `menu.manage`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '204': { description: Quitada }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /media/{tenant}/{file}:
+    x-service: catalog
+    get:
+      summary: Foto pública de un producto
+      description: Sin autenticación (el cliente QR no tiene cuenta). El nombre es aleatorio e inmutable, por eso se cachea un año.
+      security: []
+      parameters:
+        - { name: tenant, in: path, required: true, schema: { $ref: '#/components/schemas/Ulid' } }
+        - { name: file, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]{40}\.(jpg|png|webp)$' } }
+      responses:
+        '200':
+          description: La imagen
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/Error' }
   /products/{productId}/variants:
     x-service: catalog
     post:
@@ -937,12 +1000,13 @@ components:
         is_available: { type: boolean }
     Product:
       type: object
-      required: [id, category_id, name, description, price, tax_bps, destination, allergens, ingredients, available_from, available_until, is_available, is_sold_out, sort_order, variants, addons]
+      required: [id, category_id, name, description, image_url, price, tax_bps, destination, allergens, ingredients, available_from, available_until, is_available, is_sold_out, sort_order, variants, addons]
       properties:
         id: { $ref: '#/components/schemas/Ulid' }
         category_id: { $ref: '#/components/schemas/Ulid' }
         name: { type: string }
         description: { type: [string, 'null'] }
+        image_url: { type: [string, 'null'], description: Ruta relativa a /media }
         price: { type: integer }
         tax_bps: { type: [integer, 'null'] }
         destination: { type: string, enum: [kitchen, bar, other] }

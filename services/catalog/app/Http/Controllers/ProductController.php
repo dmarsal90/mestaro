@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Mestaro\Kernel\Http\ApiError;
+use Mestaro\Kernel\Tenancy\TenantContext;
 
 /** Products with their variants and add-ons. Soft-deleted products disappear from every read but stay for past orders. */
 final class ProductController
@@ -142,6 +143,7 @@ final class ProductController
 
         return $rows->map(fn ($p) => [
             'id' => $p->public_id, 'category_id' => $p->category_public_id, 'name' => $p->name, 'description' => $p->description,
+            'image_url' => $p->image_path === null ? null : MediaController::url(app(TenantContext::class)->tenantId(), $p->image_path),
             'price' => (int) $p->price, 'tax_bps' => $p->tax_bps, 'destination' => $p->destination,
             'allergens' => json_decode($p->allergens, true), 'ingredients' => json_decode($p->ingredients, true),
             'available_from' => $p->available_from ? substr($p->available_from, 0, 5) : null,
