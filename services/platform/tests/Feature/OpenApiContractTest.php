@@ -108,7 +108,8 @@ it('documents every API route and nothing that does not exist', function () {
             ->map(fn ($m) => $m.' /'.substr($r->uri(), strlen('api/v1/'))))
         ->sort()->values()->all();
 
-    $documented = collect(openApi()['paths'])->flatMap(fn ($ops, $path) => collect($ops)
+    // Paths of other services carry `x-service`; each service checks its own.
+    $documented = collect(openApi()['paths'])->reject(fn ($ops) => isset($ops['x-service']))->flatMap(fn ($ops, $path) => collect($ops)
         ->keys()->filter(fn ($k) => in_array($k, ['get', 'post', 'put', 'patch', 'delete']))
         ->map(fn ($m) => strtoupper($m).' '.$path))->sort()->values()->all();
 

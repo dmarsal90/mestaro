@@ -3,8 +3,8 @@ info:
   title: Mestaro API
   version: 0.2.0
   description: |
-    Contrato de `platform` (auth, ajustes, personal, administración de restaurantes). Los demás servicios
-    añaden sus endpoints en su fase. `tests/Feature/OpenApiContractTest.php` comprueba que cada ruta existe aquí
+    Contrato de `platform` (auth, ajustes, personal, administración de restaurantes) y `catalog`
+    (rutas con `x-service: catalog`). Los demás servicios añaden sus endpoints en su fase. `tests/Feature/OpenApiContractTest.php` comprueba que cada ruta existe aquí
     y que las respuestas reales cumplen estos esquemas.
 servers:
   - url: /api/v1
@@ -297,7 +297,7 @@ paths:
     get:
       summary: Consultar un restaurante
       parameters:
-        - { $ref: '#/components/parameters/RestaurantId' }
+        - { $ref: '#/components/parameters/PathId' }
       responses:
         '200':
           description: OK
@@ -311,7 +311,7 @@ paths:
     post:
       summary: Suspender un restaurante activo
       parameters:
-        - { $ref: '#/components/parameters/RestaurantId' }
+        - { $ref: '#/components/parameters/PathId' }
       responses:
         '200':
           description: Suspendido
@@ -326,7 +326,7 @@ paths:
     post:
       summary: Reintentar la provisión de un restaurante en `provisioning_failed`
       parameters:
-        - { $ref: '#/components/parameters/RestaurantId' }
+        - { $ref: '#/components/parameters/PathId' }
       responses:
         '202':
           description: Reintento en curso
@@ -337,6 +337,182 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /zones:
+    x-service: catalog
+    get:
+      summary: Zonas del restaurante del token
+      description: Cualquier personal del restaurante.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Zone' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Crear una zona
+      description: Requiere `floor.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80 }
+                sort_order: { type: integer, minimum: 0, maximum: 65535 }
+      responses:
+        '201':
+          description: Creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Zone' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /zones/{id}:
+    x-service: catalog
+    patch:
+      summary: Cambiar nombre, orden o estado de una zona
+      description: Requiere `floor.manage`. Una zona inactiva no admite mesas nuevas.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 80 }
+                sort_order: { type: integer, minimum: 0, maximum: 65535 }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Zone' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /tables:
+    x-service: catalog
+    get:
+      summary: Mesas del restaurante del token
+      description: Cualquier personal. `qr_token` y `qr_rotated_at` solo se devuelven con `floor.manage`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Table' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Crear una mesa con su QR
+      description: Requiere `floor.manage`. La zona debe existir y estar activa (`422 INVALID_ZONE`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [zone_id, label, capacity]
+              properties:
+                zone_id: { $ref: '#/components/schemas/Ulid' }
+                label: { type: string, maxLength: 40 }
+                capacity: { type: integer, minimum: 1, maximum: 65535 }
+      responses:
+        '201':
+          description: Creada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Table' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /tables/{id}:
+    x-service: catalog
+    patch:
+      summary: Cambiar zona, etiqueta, capacidad o estado de una mesa
+      description: Requiere `floor.manage`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                zone_id: { $ref: '#/components/schemas/Ulid' }
+                label: { type: string, maxLength: 40 }
+                capacity: { type: integer, minimum: 1, maximum: 65535 }
+                is_active: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Table' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /tables/{id}/qr/rotate:
+    x-service: catalog
+    post:
+      summary: Rotar el QR de una mesa (el anterior deja de valer)
+      description: Requiere `floor.manage`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Table' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
     bearerAuth:
@@ -357,6 +533,25 @@ components:
         currency:
           type: string
           pattern: '^[A-Z]{3}$'
+    Zone:
+      type: object
+      required: [id, name, sort_order, is_active]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        name: { type: string }
+        sort_order: { type: integer }
+        is_active: { type: boolean }
+    Table:
+      type: object
+      required: [id, zone_id, label, capacity, is_active]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        zone_id: { $ref: '#/components/schemas/Ulid' }
+        label: { type: string }
+        capacity: { type: integer }
+        is_active: { type: boolean }
+        qr_token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+        qr_rotated_at: { type: [string, 'null'] }
     StaffRole:
       type: string
       enum: [restaurant_admin, manager, waiter, kitchen, bar]
@@ -534,7 +729,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   parameters:
-    RestaurantId:
+    PathId:
       name: id
       in: path
       required: true
