@@ -15,6 +15,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-on-accent: var(--on-accent);
+  --color-brand: var(--brand-mark);
   --color-focus: var(--focus-ring);
   --color-success: var(--status-success);
   --color-warning: var(--status-warning);
