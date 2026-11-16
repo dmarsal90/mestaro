@@ -102,3 +102,15 @@ it('does not touch people of another restaurant or yourself, and validates', fun
     $this->postJson('/api/v1/staff', ['name' => 'X', 'email' => 'x@example.com', 'role' => 'platform_admin'], $admin)->assertStatus(422);
     $this->postJson('/api/v1/staff', ['name' => 'X', 'email' => 'not-an-email', 'role' => 'waiter'], $admin)->assertStatus(422);
 });
+
+it('does not end the person\'s sessions in another restaurant', function () {
+    [, $admin] = staffMember('restaurant_admin');
+    [$waiter] = staffMember('waiter');
+    member($waiter, SB, 'waiter');
+    $elsewhere = app(TokenIssuer::class)->issue(new AccessClaims($waiter->public_id, SB, 'waiter', ['orders.view']));
+    sleep(1);
+
+    $this->patchJson('/api/v1/staff/'.$waiter->public_id, ['role' => 'bar'], $admin)->assertOk();
+
+    $this->getJson('/api/v1/auth/me', ['Authorization' => "Bearer $elsewhere"])->assertOk();
+});

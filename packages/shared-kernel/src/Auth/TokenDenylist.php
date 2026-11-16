@@ -32,9 +32,15 @@ final class TokenDenylist
         if ($this->redis()->exists("jti:{$claims->jti}") > 0) {
             return true;
         }
-        $cutoff = $this->redis()->get("user:{$claims->userId}");
+        // Account-wide cutoff, plus one per restaurant so an administrator can only end sessions inside their own.
+        foreach (["user:{$claims->userId}", "user:{$claims->userId}:{$claims->tenantId}"] as $key) {
+            $cutoff = $this->redis()->get($key);
+            if ($cutoff !== null && $claims->issuedAt < (int) $cutoff) {
+                return true;
+            }
+        }
 
-        return $cutoff !== null && $claims->issuedAt < (int) $cutoff;
+        return false;
     }
 
     public function revokeToken(AccessClaims $claims): void
@@ -42,9 +48,9 @@ final class TokenDenylist
         $this->redis()->setex("jti:{$claims->jti}", max(1, $claims->expiresAt - time()), '1');
     }
 
-    /** Every token issued before now stops working; later logins are unaffected. */
-    public function revokeUser(string $userId): void
+    /** Every token of the user issued before now stops working; with a restaurant, only those scoped to it. */
+    public function revokeUser(string $userId, ?string $tenantId = null): void
     {
-        $this->redis()->setex("user:{$userId}", $this->ttlSeconds, (string) time());
+        $this->redis()->setex($tenantId === null ? "user:{$userId}" : "user:{$userId}:{$tenantId}", $this->ttlSeconds, (string) time());
     }
 }

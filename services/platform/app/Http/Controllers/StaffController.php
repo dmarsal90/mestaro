@@ -87,8 +87,8 @@ final class StaffController
         }
         if ($changes !== []) {
             DB::table('restaurant_user')->where('restaurant_id', $claims->tenantId)->where('user_id', $member->user_id)->update([...$changes, 'updated_at' => now()]);
-            // Tokens carry the old role and permissions for up to 10 minutes; cut them off now.
-            $this->denylist->revokeUser($id);
+            // Tokens carry the old role and permissions for up to 10 minutes; cut off this restaurant's, not the person's sessions elsewhere.
+            $this->denylist->revokeUser($id, $claims->tenantId);
             $this->audit->record('staff.updated', $claims->userId, 'user', $id, ['restaurant_id' => $claims->tenantId, 'fields' => array_keys($request->validated())]);
         }
 
