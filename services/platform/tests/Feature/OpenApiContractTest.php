@@ -7,93 +7,12 @@ use Firebase\JWT\JWT;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Route;
 use Mestaro\Kernel\Auth\AccessClaims;
-use Symfony\Component\Yaml\Yaml;
-
-/** The contract lives in docs/openapi.yaml; the container sees it at /var/docs, CI and the host at ../../docs. */
-function openApi(): array
-{
-    static $spec;
-    foreach ([base_path('../../docs/openapi.yaml'), '/var/docs/openapi.yaml'] as $path) {
-        if (is_file($path)) {
-            return $spec ??= Yaml::parseFile($path);
-        }
-    }
-    throw new RuntimeException('docs/openapi.yaml not found.');
-}
-
-/** Minimal JSON Schema subset used by our spec: $ref, oneOf, type (incl. null), enum, pattern, required, properties, items. */
-function schemaErrors(mixed $value, array $schema, string $at = '$'): array
-{
-    if (isset($schema['$ref'])) {
-        $node = openApi();
-        foreach (explode('/', ltrim($schema['$ref'], '#/')) as $part) {
-            $node = $node[$part];
-        }
-
-        return schemaErrors($value, $node, $at);
-    }
-    if (isset($schema['oneOf'])) {
-        $matches = array_filter($schema['oneOf'], fn ($s) => schemaErrors($value, $s, $at) === []);
-
-        return count($matches) === 1 ? [] : ["$at matches ".count($matches).' of the oneOf schemas'];
-    }
-
-    $errors = [];
-    $types = (array) ($schema['type'] ?? []);
-    $actual = match (true) {
-        $value === null => 'null',
-        is_bool($value) => 'boolean',
-        is_int($value) => 'integer',
-        is_string($value) => 'string',
-        is_array($value) => array_is_list($value) ? 'array' : 'object',
-        default => 'other',
-    };
-    // An empty PHP array decodes from `{}` or `[]` alike.
-    if ($types !== [] && ! in_array($actual, $types, true) && ! ($value === [] && array_intersect($types, ['array', 'object']))) {
-        return ["$at is $actual, expected ".implode('|', $types)];
-    }
-    if (isset($schema['enum']) && ! in_array($value, $schema['enum'], true)) {
-        $errors[] = "$at is not one of the allowed values";
-    }
-    if (isset($schema['pattern']) && is_string($value) && preg_match('/'.str_replace('/', '\/', $schema['pattern']).'/', $value) !== 1) {
-        $errors[] = "$at does not match {$schema['pattern']}";
-    }
-    if (is_array($value) && ! array_is_list($value)) {
-        foreach ($schema['required'] ?? [] as $key) {
-            array_key_exists($key, $value) || $errors[] = "$at.$key is missing";
-        }
-        foreach ($schema['properties'] ?? [] as $key => $sub) {
-            array_key_exists($key, $value) && $errors = [...$errors, ...schemaErrors($value[$key], $sub, "$at.$key")];
-        }
-        if (($schema['additionalProperties'] ?? true) === false) {
-            foreach (array_diff(array_keys($value), array_keys($schema['properties'] ?? [])) as $key) {
-                $errors[] = "$at.$key is not documented";
-            }
-        }
-    }
-    if (is_array($value) && array_is_list($value) && isset($schema['items'])) {
-        foreach ($value as $i => $item) {
-            $errors = [...$errors, ...schemaErrors($item, $schema['items'], "$at[$i]")];
-        }
-    }
-
-    return $errors;
-}
+use Mestaro\Kernel\Testing\OpenApiContract;
 
 /** Fails unless the response body fits the schema documented for this operation and status. */
 function assertDocumented(string $method, string $path, $response): void
 {
-    $operation = openApi()['paths'][$path][strtolower($method)] ?? null;
-    expect($operation)->not->toBeNull("$method $path is not in openapi.yaml");
-    $status = (string) $response->getStatusCode();
-    $declared = $operation['responses'][$status] ?? null;
-    expect($declared)->not->toBeNull("$method $path answers $status, which openapi.yaml does not list");
-
-    $schema = ($declared['content']['application/json']['schema'] ?? null)
-        ?? (isset($declared['$ref']) ? openApi()['components']['responses'][basename($declared['$ref'])]['content']['application/json']['schema'] : null);
-    if ($schema !== null) {
-        expect(schemaErrors($response->json(), $schema))->toBe([], "$method $path $status");
-    }
+    expect(OpenApiContract::check($method, $path, $response->getStatusCode(), (string) $response->getContent()))->toBeNull();
 }
 
 beforeEach(function () {
@@ -108,12 +27,7 @@ it('documents every API route and nothing that does not exist', function () {
             ->map(fn ($m) => $m.' /'.substr($r->uri(), strlen('api/v1/'))))
         ->sort()->values()->all();
 
-    // Paths of other services carry `x-service`; each service checks its own.
-    $documented = collect(openApi()['paths'])->reject(fn ($ops) => isset($ops['x-service']))->flatMap(fn ($ops, $path) => collect($ops)
-        ->keys()->filter(fn ($k) => in_array($k, ['get', 'post', 'put', 'patch', 'delete']))
-        ->map(fn ($m) => strtoupper($m).' '.$path))->sort()->values()->all();
-
-    expect($documented)->toBe($actual);
+    expect(OpenApiContract::operations('platform'))->toBe($actual);
 });
 
 it('answers the documented shapes', function () {

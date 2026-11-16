@@ -132,6 +132,7 @@ services:
     volumes:
       - ./services/catalog:/var/www/html
       - ./packages:/var/packages
+      - ./docs:/var/docs:ro # the OpenAPI contract test reads docs/openapi.yaml
     environment:
       <<: *catalog-env
       RUN_MIGRATIONS: "true"
