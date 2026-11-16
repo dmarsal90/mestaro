@@ -12,6 +12,7 @@ use Mestaro\Kernel\Auth\TokenDenylist;
 use Mestaro\Kernel\Messaging\ConsumeEvents;
 use Mestaro\Kernel\Messaging\RelayOutbox;
 use Mestaro\Kernel\Tenancy\DatabaseTenantCredentials;
+use Mestaro\Kernel\Tenancy\MigrateTenants;
 use Mestaro\Kernel\Tenancy\PostgresTenantDatabaseCreator;
 use Mestaro\Kernel\Tenancy\TenantContext;
 use Mestaro\Kernel\Tenancy\TenantCredentials;
@@ -37,7 +38,7 @@ final class KernelServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([RelayOutbox::class, ConsumeEvents::class]);
+            $this->commands([RelayOutbox::class, ConsumeEvents::class, MigrateTenants::class]);
         }
     }
 }
