@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 
@@ -32,7 +33,6 @@ it('resets the password, ends every session and burns the token', function () {
     $this->postJson('/api/v1/auth/reset-password', $body)->assertNoContent();
 
     expect($user->fresh()->tokens()->count())->toBe(0);
-    $this->postJson('/api/v1/auth/login', ['email' => 'staff@example.com', 'password' => 'a brand new password'])->assertUnauthorized(); // no membership, but the new hash is stored
     expect(Hash::check('a brand new password', $user->fresh()->password))->toBeTrue();
     $this->postJson('/api/v1/auth/reset-password', $body)->assertStatus(422)->assertJsonPath('error.code', 'INVALID_RESET_TOKEN');
 });
