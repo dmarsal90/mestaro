@@ -13,6 +13,7 @@ defineProps<{ title: string; description?: string; side?: 'left' | 'right' }>()
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-[var(--z-modal)] bg-bg-deep/70" />
       <DialogContent
+        v-bind="description ? {} : { 'aria-describedby': undefined }"
         class="fixed z-[var(--z-modal)] flex flex-col gap-4 border border-border bg-surface p-6 text-text shadow-overlay"
         :class="side
           ? ['inset-y-0 w-[min(24rem,100vw)]', side === 'right' ? 'right-0 border-r-0' : 'left-0 border-l-0']

@@ -13,6 +13,6 @@ const session = useSession()
       <h1 class="text-xl font-semibold">Hola, {{ session.me?.name }}</h1>
       <Badge tone="info">{{ session.me?.role }}</Badge>
     </div>
-    <EmptyState title="Tu espacio está listo" description="Las secciones de trabajo (carta, salón, equipo, ajustes) se irán añadiendo aquí según tu rol." />
+    <EmptyState title="Tu espacio está listo" description="Usa el menú para abrir las secciones que permite tu rol." />
   </Card>
 </template>

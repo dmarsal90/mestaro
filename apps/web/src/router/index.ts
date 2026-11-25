@@ -10,12 +10,15 @@ declare module 'vue-router' {
 }
 
 export const routes: RouteRecordRaw[] = [
+  { path: '/accept-invitation', name: 'accept-invitation', component: () => import('../pages/AcceptInvitationPage.vue'), meta: { public: true } },
   { path: '/login', name: 'login', component: () => import('../pages/LoginPage.vue'), meta: { public: true } },
   {
     path: '/',
     component: () => import('../layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'home', component: () => import('../pages/HomePage.vue'), meta: { nav: 'Inicio' } },
+      { path: 'equipo', name: 'staff', component: () => import('../pages/StaffPage.vue'), meta: { nav: 'Equipo', permission: 'users.manage' } },
+      { path: 'ajustes', name: 'settings', component: () => import('../pages/SettingsPage.vue'), meta: { nav: 'Ajustes', permission: 'restaurant.manage' } },
       { path: 'forbidden', name: 'forbidden', component: () => import('../pages/ForbiddenPage.vue') },
       { path: ':pathMatch(.*)*', name: 'not-found', component: () => import('../pages/NotFoundPage.vue') },
     ],
