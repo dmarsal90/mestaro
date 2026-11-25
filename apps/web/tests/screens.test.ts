@@ -6,6 +6,7 @@ import { createMemoryHistory } from 'vue-router'
 import { formatMoney, moneyText, parseDecimal, parseMoney } from '../src/lib/money'
 import AcceptInvitationPage from '../src/pages/AcceptInvitationPage.vue'
 import FloorPage from '../src/pages/FloorPage.vue'
+import MenuPage from '../src/pages/MenuPage.vue'
 import SettingsPage from '../src/pages/SettingsPage.vue'
 import StaffPage from '../src/pages/StaffPage.vue'
 import { createAppRouter } from '../src/router'
@@ -73,6 +74,73 @@ const settings = {
   require_waiter_approval_for_session: true, prices_include_tax: true, default_tax_bps: 1000,
   join_code_reuse_cooldown_minutes: 15, order_alert_threshold_seconds: 300, preferences: null,
 }
+const product = {
+  id: 'p1', category_id: 'c1', name: 'Tortilla', description: null, image_url: null, price: 850, tax_bps: null, destination: 'kitchen',
+  allergens: ['eggs'], ingredients: [], available_from: null, available_until: null, is_available: true, is_sold_out: false, sort_order: 0,
+  variants: [{ id: 'v1', name: 'Grande', price_delta: 200, is_default: false, is_available: true }], addons: [],
+}
+const menuRoutes = (products: unknown[] = [product], active = true) => ({
+  'GET /categories': { body: { data: [{ id: 'c1', name: 'Entrantes', description: null, sort_order: 0, is_active: active }] } },
+  'GET /products': { body: { data: products } },
+  'GET /settings': { body: { data: settings } },
+})
+
+describe('MenuPage', () => {
+  it('lists the menu accessibly', async () => {
+    stubFetch(menuRoutes())
+    const { w } = await open(MenuPage)
+    expect(w.text()).toContain('Tortilla')
+    expect(w.text()).toContain('8,50')
+    await expectAccessible(w.element)
+  })
+  it('saves the price in cents and leaves an unchanged (even inactive) category out', async () => {
+    stubFetch({ ...menuRoutes([product], false), 'PATCH /products/p1': { body: { data: product } } })
+    await open(MenuPage)
+    await click('Editar Tortilla')
+    await expectAccessible(document.body)
+    await field('Precio (EUR)').setValue('9,95')
+    await submit('Nombre')
+    const [json] = sent('PATCH /products/p1') as Array<Record<string, unknown>>
+    expect(json.price).toBe(995)
+    expect(json.allergens).toEqual(['eggs'])
+    expect(json).not.toHaveProperty('category_id')
+  })
+  it('marks the field the server rejects', async () => {
+    stubFetch({ ...menuRoutes(), 'PATCH /products/p1': { status: 422, body: { error: { code: 'VALIDATION_FAILED', message: 'x', details: { price: ['bad'] } } } } })
+    await open(MenuPage)
+    await click('Editar Tortilla')
+    await field('Precio (EUR)').setValue('mucho')
+    await submit('Nombre')
+    expect(field('Precio (EUR)').attributes('aria-invalid')).toBe('true')
+    expect(document.body.textContent).toContain('Revisa los campos marcados.')
+  })
+  it('asks before deleting an option', async () => {
+    stubFetch({ ...menuRoutes(), 'DELETE /products/p1/variants/v1': { status: 204 } })
+    await open(MenuPage)
+    await click('Editar Tortilla')
+    await click('Quitar Grande')
+    expect(sent('DELETE /products/p1/variants/v1')).toHaveLength(0)
+    await click('Quitar')
+    expect(sent('DELETE /products/p1/variants/v1')).toHaveLength(1)
+  })
+  it('shows in the open product what was just added to it', async () => {
+    const routes = { ...menuRoutes(), 'POST /products/p1/variants': { status: 201, body: { data: {} } } }
+    stubFetch(routes)
+    await open(MenuPage)
+    await click('Editar Tortilla')
+    await click('Añadir variante')
+    await field('Nombre de la variante').setValue('Mini')
+    routes['GET /products'] = { body: { data: [{ ...product, variants: [...product.variants, { id: 'v2', name: 'Mini', price_delta: 0, is_default: false, is_available: true }] }] } }
+    await submit('Nombre de la variante')
+    expect(document.querySelector('[role=dialog]')!.textContent).toContain('Mini')
+  })
+  it('offers a retry when the menu cannot be loaded', async () => {
+    stubFetch({})
+    const { w } = await open(MenuPage)
+    expect(w.find('[role=alert]').text()).toContain('No se pudo cargar')
+  })
+})
+
 const floorRoutes = {
   'GET /zones': { body: { data: [{ id: 'z1', name: 'Terraza', sort_order: 0, is_active: true }] } },
   'GET /tables': { body: { data: [{ id: 't1', zone_id: 'z1', label: 'M1', capacity: 4, is_active: true }] } },
