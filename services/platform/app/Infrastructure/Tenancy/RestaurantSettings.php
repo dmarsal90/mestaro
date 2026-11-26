@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Tenancy;
 
 use Illuminate\Support\Facades\DB;
+use Mestaro\Kernel\Messaging\Outbox;
 
 /** Per-restaurant configuration. A restaurant without a row reads the defaults; the first update creates it. */
 final class RestaurantSettings
@@ -23,6 +24,8 @@ final class RestaurantSettings
 
     private const JSON = ['opening_hours', 'preferences'];
 
+    public function __construct(private readonly Outbox $outbox) {}
+
     /** @return array<string, mixed> */
     public function get(string $restaurantId): array
     {
@@ -32,6 +35,8 @@ final class RestaurantSettings
     }
 
     /**
+     * Stores the changes and announces the resulting settings to the other services, in one transaction.
+     *
      * @param  array<string, mixed>  $changes  Already validated; only known keys are stored.
      * @return array<string, mixed>
      */
@@ -51,6 +56,8 @@ final class RestaurantSettings
                 ['restaurant_id'],
                 [...array_keys(self::DEFAULTS), 'updated_at'],
             );
+
+            $this->outbox->record('SettingsChanged', ['tenant_id' => $restaurantId, 'settings' => ['id' => $restaurantId, ...$merged]]);
 
             return $merged;
         });

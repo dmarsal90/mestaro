@@ -167,6 +167,7 @@ services:
     volumes:
       - ./services/operations:/var/www/html
       - ./packages:/var/packages
+      - ./docs:/var/docs:ro # the OpenAPI contract test reads docs/openapi.yaml
     environment:
       <<: *operations-env
       RUN_MIGRATIONS: "true"

@@ -5,14 +5,8 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
-use Mestaro\Kernel\Tenancy\MigrateTenant;
-use Mestaro\Kernel\Tenancy\PostgresTenantDatabaseCreator;
 use Mestaro\Kernel\Tenancy\TenantContext;
 use Mestaro\Kernel\Tenancy\TenantCredentials;
-use Mestaro\Kernel\Tenancy\TenantDatabaseCreator;
-
-const SHOP_A = '01JAAAAAAAAAAAAAAAAAAAAAA7';
-const SHOP_B = '01JBBBBBBBBBBBBBBBBBBBBBB7';
 
 /** @param array<string, mixed> $data */
 function changed(string $entity, array $data, int $sequence, string $tenant = SHOP_A): void
@@ -46,24 +40,6 @@ function qrIndex(): array
 {
     return DB::table('qr_tokens')->orderBy('tenant_id')->get()->map(fn ($r) => [$r->tenant_id, $r->table_id, $r->token_hash])->all();
 }
-
-beforeEach(function () {
-    Redis::del(config('events.stream'), config('events.dead_stream'));
-    foreach ([SHOP_A, SHOP_B] as $tenant) {
-        app(TenantDatabaseCreator::class)->create($tenant, 'operations', app(TenantCredentials::class)->passwordFor($tenant, 'operations'));
-        app(MigrateTenant::class)($tenant);
-    }
-});
-
-afterEach(function () {
-    $db = DB::connectUsing('tenant-cleanup', config('database.connections.pgsql'), true);
-    foreach ([SHOP_A, SHOP_B] as $tenant) {
-        $name = PostgresTenantDatabaseCreator::nameFor($tenant, 'operations');
-        $db->statement('drop database if exists "'.$name.'" with (force)');
-        $db->statement('drop role if exists "'.$name.'"');
-    }
-    Redis::del(config('events.stream'), config('events.dead_stream'));
-});
 
 it("keeps each restaurant's catalog in its own database", function () {
     changed('category', ['id' => 'C1', 'name' => 'Vinos'], 1);

@@ -22,7 +22,7 @@ Base: `/api/v1`. Contrato ejecutable: `docs/openapi.yaml` (OpenAPI 3.1). Este do
 
 ## Gateway y servicios
 
-Un único origen `/api/v1`; el gateway enruta por prefijo: `/auth`, `/admin`, `/restaurants`, `/users` → `platform`; `/zones`, `/tables`, `/categories`, `/products` → `catalog`; `/public`, `/session`, `/orders`, `/order-items`, `/waiter-calls`, `/kds` → `operations`; `/payments`, `/webhooks`, `/inventory` → `billing`. El contrato público es único (`openapi.yaml`); cada servicio publica su parte.
+Un único origen `/api/v1`; el gateway enruta por prefijo: `/auth`, `/admin`, `/restaurants`, `/users` → `platform`; `/zones`, `/tables`, `/categories`, `/products` → `catalog`; `/public`, `/session`, `/sessions`, `/orders`, `/order-items`, `/waiter-calls`, `/kds` → `operations`; `/payments`, `/webhooks`, `/inventory` → `billing`. El contrato público es único (`openapi.yaml`); cada servicio publica su parte.
 
 Administración de plataforma (superadmin): `POST /admin/restaurants` (registra y provisiona; responde `202` con estado `provisioning`), `GET /admin/restaurants/{id}`, `POST /admin/restaurants/{id}/suspend`, `POST /admin/restaurants/{id}/retry-provisioning`.
 
@@ -48,8 +48,9 @@ Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, tok
 | Usuarios | `GET/POST /users`, `GET/PATCH /users/{id}` | `users.manage` |
 | Zonas y mesas | `GET/POST /zones`, `PATCH /zones/{id}`, `GET/POST /tables`, `PATCH /tables/{id}`, `POST /tables/{id}/qr/rotate` | Lectura: cualquier personal; escritura: `floor.manage`. `qr_token` solo se devuelve con `floor.manage`. Nombre de zona y etiqueta de mesa únicos (`409`); no se crean mesas en zonas inactivas (`422 INVALID_ZONE`); rotar el QR invalida el anterior |
 | Menú | `GET/POST /categories`, `PATCH /categories/{id}`, `GET/POST /products`, `PATCH/DELETE /products/{id}`, `POST/DELETE /products/{id}/image` (multipart `image`: JPEG/PNG/WebP por contenido real, 2 MB, 4000 px), `GET /media/{tenant}/{file}` (pública, inmutable), `POST /products/{id}/variants\|addons`, `PATCH/DELETE /products/{id}/variants\|addons/{id}` | Lectura: cualquier personal; escritura: `menu.manage`; la lectura pública del cliente QR llega en la Fase 4. Precios en unidad mínima (entero); alérgenos: los 14 de la UE; horario `HH:MM` en la zona horaria del restaurante; `is_available`, `is_sold_out` y horario se cambian con `PATCH`; borrado lógico de productos; una sola variante por defecto; `409` por nombres duplicados, `422 INVALID_CATEGORY` |
-| Público QR | `GET /public/tables/{qr_token}`, `POST /public/tables/{qr_token}/sessions`, `POST /public/sessions/join` | pública con rate limit |
-| Sesión | `GET /session`, `POST /session/close` | participante / personal |
+| Público QR | `GET /public/tables/{qr_token}`, `POST /public/tables/{qr_token}/sessions`, `POST /public/sessions/join` (`qr_token`, `join_code`) | pública con rate limit. Abrir solo si la mesa no tiene sesión (`409 SESSION_EXISTS`); los demás entran con el código de 6 caracteres, válido mientras la sesión esté abierta. La respuesta trae `participant_token` |
+| Sesión | `GET /session` | participante |
+| Sesiones (personal) | `GET /sessions`, `POST /sessions/{id}/approve`, `POST /sessions/{id}/close` | `orders.view` / `orders.accept`; cerrar una pendiente es rechazarla |
 | Pedidos | `POST /orders`, `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/accept\|reject\|cancel` | participante / `orders.*` |
 | Artículos | `POST /order-items/{id}/start\|ready\|deliver\|cancel` | `kds.*` / `orders.deliver` |
 | Llamadas | `POST /waiter-calls`, `GET /waiter-calls`, `POST /waiter-calls/{id}/assign\|resolve` | participante / `calls.*` |
@@ -74,9 +75,10 @@ El detalle de parámetros, respuestas y permisos de cada endpoint se completa en
 | `INVALID_STATE_TRANSITION` | 409 | Transición no permitida |
 | `SLUG_TAKEN` | 409 | El slug del restaurante ya existe |
 | `ORDER_PRODUCT_UNAVAILABLE` | 422 | Producto agotado o fuera de horario |
+| `SESSION_EXISTS` | 409 | La mesa ya tiene una sesión: pedir su código |
 | `SESSION_CLOSED` | 409 | Sesión cerrada o expirada |
 | `SESSION_PENDING_APPROVAL` | 409 | Sesión a la espera del camarero |
-| `JOIN_CODE_INVALID` | 422 | Código inexistente, caducado o usado |
+| `JOIN_CODE_INVALID` | 422 | Código inexistente o de una sesión terminada |
 | `JOIN_CODE_LOCKED` | 429 | Demasiados intentos |
 | `PAYMENT_AMOUNT_INVALID` | 422 | Importe fuera del saldo pendiente |
 | `PAYMENT_SIGNATURE_INVALID` | 400 | Firma de webhook inválida |

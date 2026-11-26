@@ -118,10 +118,18 @@ check "a duplicated slug is refused" test "$(curl -s -o /dev/null -w '%{http_cod
 step "catalog events reach the operations projections"
 sql() { dc exec -T postgres psql -U postgres -d "$1" -tAc "$2"; }
 sql "tenant_${L1}_catalog" "insert into zones (public_id, name, created_at, updated_at) values ('01e2ezone00000000000000000', 'E2E', now(), now())" >/dev/null
+QR=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-43)
+sql "tenant_${L1}_catalog" "insert into tables (public_id, zone_id, label, capacity, qr_token, created_at, updated_at) select '01e2etable0000000000000000', id, 'M1', 2, '$QR', now(), now() from zones" >/dev/null
 check "the current state can be republished" dc exec -T catalog php artisan catalog:publish-state
 projected() { sql "tenant_${L1}_operations" "select data->>'name' from catalog_projection where kind = 'zone'"; }
 for _ in $(seq 1 30); do [ "$(projected)" = E2E ] && break; sleep 1; done
 check "operations projected the zone" test "$(projected)" = E2E
+
+step "a diner opens a session from the table's QR"
+for _ in $(seq 1 30); do curl -fsS "$G/api/v1/public/tables/$QR" >/dev/null 2>&1 && break; sleep 1; done
+check "the QR resolves through the gateway" test "$(curl -fsS "$G/api/v1/public/tables/$QR" | json 'd["data"]["table"]["label"]')" = M1
+DINER=$(curl -fsS -X POST "$G/api/v1/public/tables/$QR/sessions" | json 'd["data"]["participant_token"]')
+check "the diner gets a credential and waits for approval" test "$(curl -fsS "$G/api/v1/session" -H "Authorization: Bearer $DINER" | json 'd["data"]["session"]["status"]')" = pending_approval
 
 step "provisioning failure in one service, then a successful retry"
 dc exec -T postgres psql -U postgres -qc "ALTER ROLE billing NOCREATEDB" >/dev/null
@@ -133,7 +141,7 @@ check "retry is accepted" test "$(curl -s -o /dev/null -w '%{http_code}' -X POST
 RES=$(wait_for "$ID2" active) && ok "retry converged to active ($RES)" || bad "retry did not converge (last: $RES)"
 
 step "gateway routing by prefix"
-for p in settings staff zones orders payments kds webhooks; do
+for p in settings staff zones sessions orders payments kds webhooks; do
     code=$(curl -s "$G/api/v1/$p" | json 'd["error"]["code"]' 2>/dev/null || echo "not-a-service-answer")
     # Any error envelope proves the service answered: routes that exist answer UNAUTHENTICATED, the rest NOT_FOUND.
     check "/$p reaches its service" test "$code" = NOT_FOUND -o "$code" = UNAUTHENTICATED
