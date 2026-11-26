@@ -16,6 +16,13 @@ const messages: Record<string, string> = {
   CANNOT_MODIFY_SELF: 'No puedes cambiar tu propio rol ni tu acceso.',
   INVALID_INVITATION: 'La invitación no es válida o ha caducado. Pide otra.',
   INVALID_CREDENTIALS: 'La contraseña no coincide con la de tu cuenta.',
+  SESSION_EXISTS: 'Esta mesa ya está abierta: pide el código a quien la abrió.',
+  SESSION_CLOSED: 'Esta mesa se ha cerrado. Vuelve a escanear el QR.',
+  SESSION_PENDING_APPROVAL: 'El camarero aún no ha aprobado la mesa.',
+  JOIN_CODE_INVALID: 'Ese código no es de esta mesa.',
+  JOIN_CODE_LOCKED: 'Demasiados intentos. Espera unos minutos.',
+  ORDER_PRODUCT_UNAVAILABLE: 'Algo de tu pedido ya no está disponible. Revisa lo marcado.',
+  INVALID_STATE_TRANSITION: 'Otra persona ya lo ha cambiado.',
 }
 
 export function explain(e: unknown): string {

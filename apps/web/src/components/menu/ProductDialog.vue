@@ -12,17 +12,12 @@ import Input from '../ui/Input.vue'
 import Select from '../ui/Select.vue'
 import Switch from '../ui/Switch.vue'
 import ProductOptions from './ProductOptions.vue'
-import type { Category, Product } from './types'
+import { allergens, type Category, type Product } from './types'
 
 /** Create or edit one product. Photo, variants and add-ons need the product to exist, so they appear once it is saved. */
 const props = defineProps<{ product?: Product; categoryId: string; categories: Category[]; currency: string }>()
 const emit = defineEmits<{ saved: [id: string]; changed: []; close: [] }>()
 
-// The 14 allergens of EU Regulation 1169/2011, with the keys the API accepts.
-const allergens: Record<string, string> = {
-  gluten: 'Gluten', crustaceans: 'Crustáceos', eggs: 'Huevos', fish: 'Pescado', peanuts: 'Cacahuetes', soy: 'Soja', milk: 'Lácteos',
-  nuts: 'Frutos de cáscara', celery: 'Apio', mustard: 'Mostaza', sesame: 'Sésamo', sulphites: 'Sulfitos', lupin: 'Altramuces', molluscs: 'Moluscos',
-}
 const destinations = [{ value: 'kitchen', label: 'Cocina' }, { value: 'bar', label: 'Barra' }, { value: 'other', label: 'Otro' }]
 const categoryOptions = computed(() => props.categories
   .filter((c) => c.is_active || c.id === props.product?.category_id)

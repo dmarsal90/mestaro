@@ -17,6 +17,7 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'home', component: () => import('../pages/HomePage.vue'), meta: { nav: 'Inicio' } },
+      { path: 'sala', name: 'service', component: () => import('../pages/ServicePage.vue'), meta: { nav: 'Sala', permission: 'orders.view' } },
       { path: 'carta', name: 'menu', component: () => import('../pages/MenuPage.vue'), meta: { nav: 'Carta', permission: 'menu.manage' } },
       { path: 'salon', name: 'floor', component: () => import('../pages/FloorPage.vue'), meta: { nav: 'Salón', permission: 'floor.manage' } },
       { path: 'equipo', name: 'staff', component: () => import('../pages/StaffPage.vue'), meta: { nav: 'Equipo', permission: 'users.manage' } },

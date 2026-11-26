@@ -15,7 +15,7 @@ import Switch from '../components/ui/Switch.vue'
 import { useAction, useLoad } from '../composables/useRequest'
 
 type Zone = { id: string; name: string; sort_order: number; is_active: boolean }
-type Table = { id: string; zone_id: string; label: string; capacity: number; is_active: boolean }
+type Table = { id: string; zone_id: string; label: string; capacity: number; is_active: boolean; qr_token?: string }
 
 const { data, error: loadError, load } = useLoad(async () => {
   const [zones, tables] = await Promise.all([api<{ data: Zone[] }>('/zones'), api<{ data: Table[] }>('/tables')])
@@ -28,6 +28,15 @@ const zone = reactive({ name: '', sort_order: '0', is_active: true })
 const tableForm = ref<{ id?: string; zone_id?: string } | null>(null)
 const table = reactive({ zone_id: '', label: '', capacity: '4', is_active: true })
 const rotating = ref<Table | null>(null)
+const showing = ref<{ label: string; url: string; image: string } | null>(null)
+
+/** The printable code of a table: the address of the diner's app with its token. Drawn here, so the token goes nowhere. */
+async function showQr(t: Table) {
+  const url = `${location.origin}/m/${t.qr_token}`
+  const { toString } = await import('qrcode')
+  const svg = await toString(url, { type: 'svg', margin: 4, width: 512 })
+  showing.value = { label: t.label, url, image: `data:image/svg+xml,${encodeURIComponent(svg)}` }
+}
 
 // A table cannot move to an inactive zone, but the one it is already in must still be shown.
 const zoneOptions = computed(() => (data.value?.zones ?? [])
@@ -66,7 +75,9 @@ async function saveTable() {
   await load()
 }
 async function rotate() {
-  if (await run(() => api(`/tables/${rotating.value!.id}/qr/rotate`, { method: 'POST' }), 'QR renovado. El anterior ya no sirve.')) rotating.value = null
+  if (!(await run(() => api(`/tables/${rotating.value!.id}/qr/rotate`, { method: 'POST' }), 'QR renovado. El anterior ya no sirve.'))) return
+  rotating.value = null
+  await load()
 }
 </script>
 
@@ -94,6 +105,7 @@ async function rotate() {
           <Badge v-if="!t.is_active">Inactiva</Badge>
           <div class="ml-auto flex gap-2">
             <Button size="sm" :aria-label="`Editar la mesa ${t.label}`" @click="openTable(z.id, t)">Editar</Button>
+            <Button v-if="t.qr_token" size="sm" :aria-label="`Ver el QR de la mesa ${t.label}`" @click="showQr(t)">QR</Button>
             <Button size="sm" variant="tertiary" :aria-label="`Renovar el QR de la mesa ${t.label}`" @click="reset(); rotating = t">Renovar QR</Button>
           </div>
         </li>
@@ -120,6 +132,14 @@ async function rotate() {
       <p v-if="error" role="alert" class="text-sm text-danger">{{ error }}</p>
       <Button type="submit" variant="primary" :loading="busy">Guardar</Button>
     </form>
+  </Dialog>
+
+  <Dialog :open="showing !== null" :title="`QR de la mesa ${showing?.label}`" description="Imprímelo y déjalo en la mesa. Deja de servir si lo renuevas." @update:open="showing = null">
+    <template v-if="showing">
+      <img :src="showing.image" :alt="`Código QR de la mesa ${showing.label}`" class="mx-auto w-full max-w-64" />
+      <p class="mt-2 text-center text-sm break-all text-muted">{{ showing.url }}</p>
+      <a :href="showing.image" :download="`qr-${showing.label}.svg`" class="mx-auto mt-3 grid min-h-10 w-fit place-items-center rounded-md border border-control px-4 font-medium hover:bg-border">Descargar SVG</a>
+    </template>
   </Dialog>
 
   <ConfirmDialog :open="rotating !== null" :title="`¿Renovar el QR de la mesa ${rotating?.label}?`" :description="error || 'El código impreso actual dejará de funcionar de inmediato.'" confirm-label="Renovar QR" :loading="busy" @update:open="rotating = null" @confirm="rotate" />
