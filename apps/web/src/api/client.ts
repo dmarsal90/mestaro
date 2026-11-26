@@ -19,7 +19,7 @@ export const useTokenSource = (s: TokenSource) => { source = s }
 async function raw(path: string, init: RequestInit, token: string | null): Promise<Response> {
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
-  if (init.body !== undefined) headers.set('Content-Type', 'application/json')
+  if (typeof init.body === 'string') headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
   return fetch(`/api/v1${path}`, { ...init, headers })
 }
