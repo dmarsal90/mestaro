@@ -5,6 +5,7 @@ import type { Component } from 'vue'
 import { createMemoryHistory } from 'vue-router'
 import { formatMoney, moneyText, parseDecimal, parseMoney } from '../src/lib/money'
 import AcceptInvitationPage from '../src/pages/AcceptInvitationPage.vue'
+import FloorPage from '../src/pages/FloorPage.vue'
 import SettingsPage from '../src/pages/SettingsPage.vue'
 import StaffPage from '../src/pages/StaffPage.vue'
 import { createAppRouter } from '../src/router'
@@ -72,6 +73,37 @@ const settings = {
   require_waiter_approval_for_session: true, prices_include_tax: true, default_tax_bps: 1000,
   join_code_reuse_cooldown_minutes: 15, order_alert_threshold_seconds: 300, preferences: null,
 }
+const floorRoutes = {
+  'GET /zones': { body: { data: [{ id: 'z1', name: 'Terraza', sort_order: 0, is_active: true }] } },
+  'GET /tables': { body: { data: [{ id: 't1', zone_id: 'z1', label: 'M1', capacity: 4, is_active: true }] } },
+}
+
+describe('FloorPage', () => {
+  it('lists zones and tables accessibly', async () => {
+    stubFetch(floorRoutes)
+    const { w } = await open(FloorPage)
+    expect(w.text()).toContain('M1')
+    await expectAccessible(w.element)
+  })
+  it('rotates a QR only after confirmation', async () => {
+    stubFetch({ ...floorRoutes, 'POST /tables/t1/qr/rotate': { body: { data: {} } } })
+    await open(FloorPage)
+    await click('Renovar el QR de la mesa M1')
+    expect(sent('POST /tables/t1/qr/rotate')).toHaveLength(0)
+    await click('Renovar QR')
+    expect(sent('POST /tables/t1/qr/rotate')).toHaveLength(1)
+  })
+  it('shows why a table could not be saved', async () => {
+    stubFetch({ ...floorRoutes, 'POST /tables': { status: 409, body: { error: { code: 'TABLE_LABEL_TAKEN', message: 'x' } } } })
+    await open(FloorPage)
+    await click('Añadir mesa en Terraza')
+    await field('Nombre o número').setValue('M1')
+    await submit('Nombre o número')
+    expect(sent('POST /tables')).toEqual([{ label: 'M1', capacity: 4, zone_id: 'z1' }])
+    expect(document.body.textContent).toContain('Ya hay una mesa con ese nombre.')
+  })
+})
+
 describe('StaffPage', () => {
   const routes = { 'GET /staff': { body: { data: [{ id: 'u2', name: 'Leo', email: 'leo@example.com', role: 'waiter', is_active: true }] } } }
   it('lists the team accessibly', async () => {
