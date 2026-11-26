@@ -14,6 +14,8 @@ final class ProductOptionController
 {
     private const MAX_PRICE = 100_000_000;
 
+    public function __construct(private readonly ProductController $products) {}
+
     public function store(Request $request, string $productId, string $kind): JsonResponse
     {
         $product = DB::table('products')->where('public_id', strtolower($productId))->whereNull('deleted_at')->value('id');
@@ -25,8 +27,10 @@ final class ProductOptionController
 
         try {
             DB::transaction(function () use ($kind, $product, $id, $data) {
+                $publicId = $this->lockProduct($product);
                 $this->clearOtherDefaults($kind, $product, null, $data);
                 DB::table($this->table($kind))->insert([...$data, 'public_id' => $id, 'product_id' => $product, 'created_at' => now(), 'updated_at' => now()]);
+                $this->products->publish($publicId);
             });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('OPTION_NAME_TAKEN', 'This product already has one with that name.', 409);
@@ -45,8 +49,10 @@ final class ProductOptionController
 
         try {
             DB::transaction(function () use ($kind, $row, $data) {
+                $publicId = $this->lockProduct($row->product_id);
                 $this->clearOtherDefaults($kind, $row->product_id, $row->id, $data);
                 DB::table($this->table($kind))->where('id', $row->id)->update([...$data, 'updated_at' => now()]);
+                $this->products->publish($publicId);
             });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('OPTION_NAME_TAKEN', 'This product already has one with that name.', 409);
@@ -61,9 +67,19 @@ final class ProductOptionController
         if ($row === null) {
             return ApiError::response('NOT_FOUND', 'Not found.', 404);
         }
-        DB::table($this->table($kind))->where('id', $row->id)->delete();
+        DB::transaction(function () use ($kind, $row) {
+            $publicId = $this->lockProduct($row->product_id);
+            DB::table($this->table($kind))->where('id', $row->id)->delete();
+            $this->products->publish($publicId);
+        });
 
         return response()->json(null, 204);
+    }
+
+    /** Serialises option writes of one product, so its events carry the state in commit order. */
+    private function lockProduct(int $id): string
+    {
+        return DB::table('products')->where('id', $id)->lockForUpdate()->value('public_id');
     }
 
     private function find(string $kind, string $productId, string $id): ?object

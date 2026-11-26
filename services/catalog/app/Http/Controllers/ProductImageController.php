@@ -16,6 +16,8 @@ use Mestaro\Kernel\Http\ApiError;
  */
 final class ProductImageController
 {
+    public function __construct(private readonly ProductController $products) {}
+
     public function store(Request $request, string $id): JsonResponse
     {
         $product = DB::table('products')->where('public_id', strtolower($id))->whereNull('deleted_at')->first();
@@ -30,7 +32,7 @@ final class ProductImageController
         $name = bin2hex(random_bytes(20)).'.'.($file->guessExtension() === 'jpeg' ? 'jpg' : $file->guessExtension());
         Storage::disk('local')->putFileAs('menu/'.$claims->tenantId, $file, $name);
 
-        DB::table('products')->where('id', $product->id)->update(['image_path' => $name, 'updated_at' => now()]);
+        $this->setImage($product, $name);
         $this->forget($claims->tenantId, $product->image_path);
 
         return response()->json(['data' => ['image_url' => MediaController::url($claims->tenantId, $name)]], 201);
@@ -44,10 +46,18 @@ final class ProductImageController
         }
         /** @var AccessClaims $claims */
         $claims = $request->attributes->get('claims');
-        DB::table('products')->where('id', $product->id)->update(['image_path' => null, 'updated_at' => now()]);
+        $this->setImage($product, null);
         $this->forget($claims->tenantId, $product->image_path);
 
         return response()->json(null, 204);
+    }
+
+    private function setImage(object $product, ?string $name): void
+    {
+        DB::transaction(function () use ($product, $name) {
+            DB::table('products')->where('id', $product->id)->update(['image_path' => $name, 'updated_at' => now()]);
+            $this->products->publish($product->public_id);
+        });
     }
 
     private function forget(string $tenant, ?string $name): void
