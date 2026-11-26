@@ -125,7 +125,7 @@ check "retry is accepted" test "$(curl -s -o /dev/null -w '%{http_code}' -X POST
 RES=$(wait_for "$ID2" active) && ok "retry converged to active ($RES)" || bad "retry did not converge (last: $RES)"
 
 step "gateway routing by prefix"
-for p in zones orders payments kds webhooks; do
+for p in settings staff zones orders payments kds webhooks; do
     code=$(curl -s "$G/api/v1/$p" | json 'd["error"]["code"]' 2>/dev/null || echo "not-a-service-answer")
     # Any error envelope proves the service answered: routes that exist answer UNAUTHENTICATED, the rest NOT_FOUND.
     check "/$p reaches its service" test "$code" = NOT_FOUND -o "$code" = UNAUTHENTICATED
