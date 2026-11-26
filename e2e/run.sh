@@ -115,11 +115,13 @@ EXPECTED="tenant_${L1}_billing tenant_${L1}_catalog tenant_${L1}_operations tena
 check "one database per service exists for the tenant" test "$(tenant_dbs "$ID1")" = "$EXPECTED"
 check "a duplicated slug is refused" test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$G/api/v1/admin/restaurants" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"name":"Again","slug":"e2eone"}')" = 409
 
-step "catalog relays the events of each restaurant's own database"
-tenant_sql() { dc exec -T postgres psql -U postgres -d "tenant_${L1}_catalog" -tAc "$1"; }
-tenant_sql "insert into outbox (event_id, type, payload, occurred_at) values ('01E2EPROBE0000000000000000', 'E2EProbe', '{}', now())" >/dev/null
-for _ in $(seq 1 30); do [ "$(tenant_sql "select count(*) from outbox where published_at is null")" = 0 ] && break; sleep 1; done
-check "the tenant outbox was published" test "$(tenant_sql "select count(*) from outbox where published_at is not null")" = 1
+step "catalog events reach the operations projections"
+sql() { dc exec -T postgres psql -U postgres -d "$1" -tAc "$2"; }
+sql "tenant_${L1}_catalog" "insert into zones (public_id, name, created_at, updated_at) values ('01e2ezone00000000000000000', 'E2E', now(), now())" >/dev/null
+check "the current state can be republished" dc exec -T catalog php artisan catalog:publish-state
+projected() { sql "tenant_${L1}_operations" "select data->>'name' from catalog_projection where kind = 'zone'"; }
+for _ in $(seq 1 30); do [ "$(projected)" = E2E ] && break; sleep 1; done
+check "operations projected the zone" test "$(projected)" = E2E
 
 step "provisioning failure in one service, then a successful retry"
 dc exec -T postgres psql -U postgres -qc "ALTER ROLE billing NOCREATEDB" >/dev/null

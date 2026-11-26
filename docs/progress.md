@@ -55,3 +55,7 @@ Partición aprobada (2026-11-26): 4a eventos de `catalog`; 4b proyecciones en `o
 ### 4a — eventos de catálogo
 
 `catalog` publica `CategoryChanged`, `ProductChanged`, `ZoneChanged` y `TableChanged` desde un `outbox` por restaurante (`events.md`). Al desplegar: `php artisan tenants:migrate` en `catalog`.
+
+### 4b — proyecciones
+
+`operations` mantiene `catalog_projection` por restaurante y el índice central `qr_tokens`; `catalog:publish-state` hace la carga inicial. Pasos de despliegue en `events.md`.
