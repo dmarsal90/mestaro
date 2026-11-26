@@ -51,7 +51,8 @@ Sesión (`platform`): `login` y `refresh` devuelven `{ data: { access_token, tok
 | Público QR | `GET /public/tables/{qr_token}`, `POST /public/tables/{qr_token}/sessions`, `POST /public/sessions/join` (`qr_token`, `join_code`) | pública con rate limit. Abrir solo si la mesa no tiene sesión (`409 SESSION_EXISTS`); los demás entran con el código de 6 caracteres, válido mientras la sesión esté abierta. La respuesta trae `participant_token` |
 | Sesión | `GET /session` | participante |
 | Sesiones (personal) | `GET /sessions`, `POST /sessions/{id}/approve`, `POST /sessions/{id}/close` | `orders.view` / `orders.accept`; cerrar una pendiente es rechazarla |
-| Pedidos | `POST /orders`, `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/accept\|reject\|cancel` | participante / `orders.*` |
+| Carta y pedidos del comensal | `GET /session/menu`, `GET /session/orders`, `POST /orders` (`Idempotency-Key` de 8 a 64 caracteres) | participante. La carta se puede ver antes de la aprobación; pedir, no (`409 SESSION_PENDING_APPROVAL`) |
+| Pedidos (personal) | `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/accept\|reject\|cancel` (`reason` opcional) | `orders.view` / `orders.accept` |
 | Artículos | `POST /order-items/{id}/start\|ready\|deliver\|cancel` | `kds.*` / `orders.deliver` |
 | Llamadas | `POST /waiter-calls`, `GET /waiter-calls`, `POST /waiter-calls/{id}/assign\|resolve` | participante / `calls.*` |
 | Cuenta y pagos | `GET /session/bill`, `GET /session/bill/split-preview`, `POST /payments`, `GET /payments`, `POST /webhooks/payments/{gateway}` | participante / `payments.*`; webhook firmado |

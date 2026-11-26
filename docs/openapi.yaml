@@ -1088,6 +1088,164 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /session/menu:
+    x-service: operations
+    get:
+      summary: La carta para el comensal
+      description: "Credencial de participante, también antes de la aprobación. Sin los productos retirados; `orderable: false` en agotados o fuera de horario."
+      security:
+        - participantAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Menu' } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /session/orders:
+    x-service: operations
+    get:
+      summary: Los pedidos de la mesa
+      description: Credencial de participante. Los de toda la sesión, de cualquier comensal.
+      security:
+        - participantAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { type: array, items: { $ref: '#/components/schemas/Order' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /orders:
+    x-service: operations
+    get:
+      summary: Pedidos del restaurante
+      description: Requiere `orders.view`. Los más recientes primero.
+      parameters:
+        - { name: 'filter[status]', in: query, schema: { $ref: '#/components/schemas/OrderStatus' } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data, meta, links], properties: { data: { type: array, items: { $ref: '#/components/schemas/Order' } }, meta: { type: object, required: [page, per_page, total, last_page] }, links: { type: object, required: [first, last, prev, next] } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Pedir
+      description: Credencial de participante. Precios e impuestos los calcula el servidor. Repetir la petición con la misma clave devuelve la misma respuesta.
+      security:
+        - participantAuth: []
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{8,64}$' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewOrder' }
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Order' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /orders/{id}:
+    x-service: operations
+    get:
+      summary: Un pedido
+      description: Requiere `orders.view`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Order' } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /orders/{id}/accept:
+    x-service: operations
+    post:
+      summary: Aceptar un pedido
+      description: Requiere `orders.accept`. Desde `pending`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Order' } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /orders/{id}/reject:
+    x-service: operations
+    post:
+      summary: Rechazar un pedido
+      description: Requiere `orders.accept`. Desde `pending`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { reason: { type: [string, "null"], maxLength: 255 } } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Order' } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /orders/{id}/cancel:
+    x-service: operations
+    post:
+      summary: Cancelar un pedido
+      description: Requiere `orders.accept`. Desde `pending` o `accepted`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, properties: { reason: { type: [string, "null"], maxLength: 255 } } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, required: [data], properties: { data: { $ref: '#/components/schemas/Order' } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
     participantAuth:
@@ -1098,6 +1256,94 @@ components:
       type: http
       scheme: bearer
   schemas:
+    OrderStatus:
+      type: string
+      enum: [pending, accepted, rejected, cancelled]
+    NewOrder:
+      type: object
+      required: [items]
+      properties:
+        notes: { type: [string, "null"], maxLength: 255 }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required: [product_id, quantity]
+            properties:
+              product_id: { type: string }
+              variant_id: { type: [string, "null"], description: 'Sin ella se usa la variante por defecto' }
+              quantity: { type: integer, minimum: 1, maximum: 50 }
+              notes: { type: [string, "null"], maxLength: 255 }
+              addons: { type: array, maxItems: 20, items: { type: object, required: [addon_id, quantity], properties: { addon_id: { type: string }, quantity: { type: integer, minimum: 1, maximum: 100, description: 'Por unidad de producto' } } } }
+    Order:
+      type: object
+      required: [id, status, notes, currency, subtotal, tax_total, discount_total, total, reason, version, created_at, session_id, table_label, participant_id, participant_name, items]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        notes: { type: [string, "null"] }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        subtotal: { type: integer }
+        tax_total: { type: integer }
+        discount_total: { type: integer }
+        total: { type: integer }
+        reason: { type: [string, "null"] }
+        version: { type: integer }
+        created_at: { type: string }
+        session_id: { $ref: '#/components/schemas/Ulid' }
+        table_label: { type: [string, "null"] }
+        participant_id: { type: [string, "null"] }
+        participant_name: { type: [string, "null"] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, product_id, name, variant_name, quantity, unit_price, line_total, destination, status, notes, addons]
+            properties:
+              id: { $ref: '#/components/schemas/Ulid' }
+              product_id: { type: string }
+              name: { type: string }
+              variant_name: { type: [string, "null"] }
+              quantity: { type: integer }
+              unit_price: { type: integer }
+              line_total: { type: integer, description: 'Con extras' }
+              destination: { type: string }
+              status: { type: string, enum: [queued, preparing, ready, delivered, cancelled] }
+              notes: { type: [string, "null"] }
+              addons: { type: array, items: { type: object, required: [name, unit_price, quantity], properties: { name: { type: string }, unit_price: { type: integer }, quantity: { type: integer } } } }
+    Menu:
+      type: object
+      required: [currency, prices_include_tax, categories]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        prices_include_tax: { type: boolean }
+        categories:
+          type: array
+          items:
+            type: object
+            required: [id, name, description, products]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              description: { type: [string, "null"] }
+              products:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, description, image_url, price, allergens, ingredients, variants, addons, orderable]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    description: { type: [string, "null"] }
+                    image_url: { type: [string, "null"] }
+                    price: { type: integer }
+                    allergens: { type: array, items: { type: string } }
+                    ingredients: { type: array, items: { type: string } }
+                    variants: { type: array, items: { type: object, required: [id, name, price_delta, is_default, is_available] } }
+                    addons: { type: array, items: { type: object, required: [id, name, price, max_quantity, is_available] } }
+                    orderable: { type: boolean }
     SessionStatus:
       type: string
       enum: [pending_approval, open, bill_requested, closed, expired]
