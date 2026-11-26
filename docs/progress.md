@@ -67,3 +67,11 @@ Partición aprobada (2026-11-26): 4a eventos de `catalog`; 4b proyecciones en `o
 Decisiones: el código admite varios comensales mientras la sesión está abierta y la respuesta entrega ya la credencial (sin el token intermedio de un solo uso de `spec.md` §7.6); una petición sin aprobar caduca a los 15 minutos; las sesiones abiertas no caducan solas; solo el personal cierra.
 
 Al desplegar: `php artisan tenants:migrate` en `operations` y `php artisan platform:publish-settings` en `platform`. Pendiente: suspender un restaurante no bloquea todavía sus rutas públicas; no hay pantalla de personal para las sesiones.
+
+### 4d — carta pública y pedidos
+
+`operations`: carta desde la proyección, pedidos con precios e impuestos calculados en el servidor, `Idempotency-Key`, auto-aceptación y aceptar, rechazar o cancelar por el personal con historial de solo inserción.
+
+Decisiones: el comensal lee sus pedidos en `GET /session/orders` (los de toda la mesa), así `/orders` queda solo para el personal salvo el `POST`; el impuesto se redondea por línea (mitad hacia arriba); sin variante elegida se usa la de defecto; los límites son 50 líneas, 50 unidades por línea y 20 extras distintos.
+
+Al desplegar: `php artisan tenants:migrate` en `operations`. Los restaurantes que no hayan cambiado ajustes usan los valores por defecto de `platform`. Pendiente: estados por artículo y etiqueta de progreso, pedidos desde TPV, eventos y tiempo real, limpieza de claves de idempotencia.

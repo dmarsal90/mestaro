@@ -53,3 +53,24 @@ it('answers the documented shapes', function () {
     documented('POST', '/sessions/{id}/close', $this->postJson('/api/v1/sessions/01JNOPE0000000000000000000/close', [], $waiter));
     documented('GET', '/session', $this->getJson('/api/v1/session', $diner));
 });
+
+it('answers the documented shapes for the menu and orders', function () {
+    // Real ULIDs: the contract checks the ids' shape.
+    $token = diner(table: '01j00000000000000000000001');
+    $waiter = staff();
+
+    documented('GET', '/session/menu', $this->getJson('/api/v1/session/menu', bearer($token)));
+    $created = order($token, [['product_id' => 'P1', 'quantity' => 1, 'addons' => [['addon_id' => 'A1', 'quantity' => 1]]]]);
+    documented('POST', '/orders', $created);
+    documented('POST', '/orders', order($token, key: ''));
+    documented('POST', '/orders', order($token, [['product_id' => 'NOPE', 'quantity' => 1]]));
+    documented('GET', '/session/orders', $this->getJson('/api/v1/session/orders', bearer($token)));
+    $id = $created->json('data.id');
+    documented('GET', '/orders', $this->getJson('/api/v1/orders', $waiter));
+    documented('GET', '/orders', $this->getJson('/api/v1/orders?filter[status]=nope', $waiter));
+    documented('GET', '/orders/{id}', $this->getJson("/api/v1/orders/$id", $waiter));
+    documented('GET', '/orders/{id}', $this->getJson('/api/v1/orders/01JNOPE0000000000000000000', $waiter));
+    documented('POST', '/orders/{id}/accept', $this->postJson("/api/v1/orders/$id/accept", [], $waiter));
+    documented('POST', '/orders/{id}/reject', $this->postJson("/api/v1/orders/$id/reject", [], $waiter));
+    documented('POST', '/orders/{id}/cancel', $this->postJson("/api/v1/orders/$id/cancel", [], $waiter));
+});
