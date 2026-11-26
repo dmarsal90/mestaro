@@ -59,3 +59,11 @@ Partición aprobada (2026-11-26): 4a eventos de `catalog`; 4b proyecciones en `o
 ### 4b — proyecciones
 
 `operations` mantiene `catalog_projection` por restaurante y el índice central `qr_tokens`; `catalog:publish-state` hace la carga inicial. Pasos de despliegue en `events.md`.
+
+### 4c — sesiones de mesa
+
+`operations`: apertura por QR, incorporación con `join_code`, aprobación y cierre por el personal, credenciales de participante y límites de intentos. `platform` publica `SettingsChanged`.
+
+Decisiones: el código admite varios comensales mientras la sesión está abierta y la respuesta entrega ya la credencial (sin el token intermedio de un solo uso de `spec.md` §7.6); una petición sin aprobar caduca a los 15 minutos; las sesiones abiertas no caducan solas; solo el personal cierra.
+
+Al desplegar: `php artisan tenants:migrate` en `operations` y `php artisan platform:publish-settings` en `platform`. Pendiente: suspender un restaurante no bloquea todavía sus rutas públicas; no hay pantalla de personal para las sesiones.

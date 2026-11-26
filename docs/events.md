@@ -49,3 +49,8 @@ El consumidor de `operations` guarda cada estado en `catalog_projection` (base d
 1. `operations`: `php artisan migrate` y `php artisan tenants:migrate`; reiniciar su consumidor.
 2. `catalog`: `php artisan tenants:migrate`; reiniciar su relay.
 3. `catalog`: `php artisan catalog:publish-state`.
+
+## Ajustes
+
+`platform` publica `SettingsChanged` (`tenant_id`, `settings` con `id` = `tenant_id` y todos los ajustes) al guardar los ajustes de un restaurante, en la misma transacción. `operations` los guarda en `catalog_projection`; mientras no recibe ninguno usa los valores por defecto de `platform` (aprobación de sesión activada, 15 minutos sin reutilizar un `join_code`). Carga inicial o reparación: `php artisan platform:publish-settings` (en `platform`).
+

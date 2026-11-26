@@ -929,12 +929,204 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /public/tables/{qr_token}:
+    x-service: operations
+    get:
+      summary: Mesa del QR escaneado
+      description: Pública. Identifica la mesa; no autoriza nada.
+      security: []
+      parameters:
+        - { name: qr_token, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' } }
+      responses:
+        '200':
+          description: Mesa y si ya tiene sesión
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: object, required: [table, has_session], properties: { table: { type: object, required: [label], properties: { label: { type: string } } }, has_session: { type: boolean } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /public/tables/{qr_token}/sessions:
+    x-service: operations
+    post:
+      summary: Abrir la sesión de la mesa
+      description: Pública. Solo si la mesa no tiene sesión (`409 SESSION_EXISTS`); queda `pending_approval` si el restaurante exige aprobación.
+      security: []
+      parameters:
+        - { name: qr_token, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: { type: [string, "null"], maxLength: 40 }
+      responses:
+        '201':
+          description: Credencial del primer participante
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ParticipantCredential' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /public/sessions/join:
+    x-service: operations
+    post:
+      summary: Unirse a la sesión de la mesa con su código
+      description: Pública. 5 códigos erróneos en 10 minutos por dirección y mesa (30 por mesa) bloquean con `429 JOIN_CODE_LOCKED`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qr_token, join_code]
+              properties:
+                qr_token: { type: string }
+                join_code: { type: string, minLength: 6, maxLength: 6 }
+                display_name: { type: [string, "null"], maxLength: 40 }
+      responses:
+        '201':
+          description: Credencial del participante
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ParticipantCredential' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /session:
+    x-service: operations
+    get:
+      summary: La sesión del participante
+      description: Credencial de participante. `409 SESSION_CLOSED` cuando la sesión ha terminado.
+      security:
+        - participantAuth: []
+      responses:
+        '200':
+          description: Sesión, participante y número de participantes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: object, required: [session, me, participants], properties: { session: { $ref: '#/components/schemas/DinerSession' }, me: { type: object, required: [id], properties: { id: { $ref: '#/components/schemas/Ulid' }, display_name: { type: [string, "null"] } } }, participants: { type: integer } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /sessions:
+    x-service: operations
+    get:
+      summary: Sesiones activas del restaurante
+      description: Requiere `orders.view`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/StaffSession' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /sessions/{id}/approve:
+    x-service: operations
+    post:
+      summary: Aprobar una sesión pendiente
+      description: Requiere `orders.accept`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/StaffSession' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /sessions/{id}/close:
+    x-service: operations
+    post:
+      summary: Cerrar o rechazar una sesión
+      description: Requiere `orders.accept`.
+      parameters:
+        - { $ref: '#/components/parameters/PathId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/StaffSession' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
+    participantAuth:
+      type: http
+      scheme: bearer
+      description: Credencial opaca de participante emitida por `operations`.
     bearerAuth:
       type: http
       scheme: bearer
   schemas:
+    SessionStatus:
+      type: string
+      enum: [pending_approval, open, bill_requested, closed, expired]
+    DinerSession:
+      type: object
+      required: [id, status, table_label, join_code]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        table_label: { type: [string, "null"] }
+        join_code: { type: [string, "null"], pattern: '^[2-9A-HJKMNP-Z]{6}$' }
+    ParticipantCredential:
+      type: object
+      required: [participant_token, session]
+      properties:
+        participant_token: { type: string }
+        session: { $ref: '#/components/schemas/DinerSession' }
+    StaffSession:
+      type: object
+      required: [id, table_id, table_label, status, join_code, version, created_at, participants]
+      properties:
+        id: { $ref: '#/components/schemas/Ulid' }
+        table_id: { $ref: '#/components/schemas/Ulid' }
+        table_label: { type: [string, "null"] }
+        status: { $ref: '#/components/schemas/SessionStatus' }
+        join_code: { type: string }
+        version: { type: integer }
+        created_at: { type: string }
+        participants: { type: integer }
     Ulid:
       type: string
       description: Los ids de usuario salen en minúsculas y los de restaurante en mayúsculas; se comparan tal cual, sin normalizar.

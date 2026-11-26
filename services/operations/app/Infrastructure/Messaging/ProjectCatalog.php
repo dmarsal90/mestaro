@@ -15,12 +15,12 @@ use Mestaro\Kernel\Tenancy\TenantCredentials;
 use RuntimeException;
 
 /**
- * Keeps the local copy of catalog's data and the central QR index (docs/events.md); every other event goes to
- * tenant provisioning. A state is written only if its sequence is newer, so redelivery and disorder are harmless.
+ * Keeps the local copy of catalog's data and platform's settings, and the central QR index (docs/events.md); every
+ * other event goes to tenant provisioning. A state is written only if its sequence is newer, so redelivery and disorder are harmless.
  */
 final readonly class ProjectCatalog implements EventHandler
 {
-    private const KINDS = ['CategoryChanged' => 'category', 'ProductChanged' => 'product', 'ZoneChanged' => 'zone', 'TableChanged' => 'table'];
+    private const KINDS = ['CategoryChanged' => 'category', 'ProductChanged' => 'product', 'ZoneChanged' => 'zone', 'TableChanged' => 'table', 'SettingsChanged' => 'settings'];
 
     public function __construct(
         private ProvisionTenantOnRegistered $provision,
