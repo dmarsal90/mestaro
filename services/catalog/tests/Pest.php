@@ -2,6 +2,7 @@
 
 use Firebase\JWT\JWT;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Testing\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Mestaro\Kernel\Tenancy\MigrateTenant;
@@ -28,6 +29,15 @@ function staffOf(string $tenant, array $permissions = ['floor.manage', 'menu.man
     return ['Authorization' => "Bearer $token"];
 }
 
+/** A real 1x1 PNG: the image extension is not installed, so fake()->image() is not available. */
+function pngUpload(string $name = 'photo.png'): File
+{
+    $path = tempnam(sys_get_temp_dir(), 'png');
+    file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+    return new File($name, fopen($path, 'r'));
+}
+
 pest()->beforeEach(function () {
     $pair = sodium_crypto_sign_keypair();
     $this->secret = sodium_crypto_sign_secretkey($pair);
@@ -46,4 +56,4 @@ pest()->beforeEach(function () {
         $db->statement('drop database if exists "'.$name.'" with (force)');
         $db->statement('drop role if exists "'.$name.'"');
     }
-})->in('Feature/FloorTest.php', 'Feature/MenuTest.php', 'Feature/ContractTest.php');
+})->in('Feature/FloorTest.php', 'Feature/MenuTest.php', 'Feature/ContractTest.php', 'Feature/EventsTest.php');

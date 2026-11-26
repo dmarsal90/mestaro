@@ -11,7 +11,7 @@ interface EventHandler
      * Returning acknowledges it (also for event types the service does not care about); throwing leaves it
      * pending to be retried, and after --max-deliveries attempts it goes to the dead-letter stream.
      *
-     * @param  array<string, string>  $fields  event_id, type, occurred_at, payload (JSON)
+     * @param  array<string, string>  $fields  event_id, type, occurred_at, payload (JSON), sequence
      */
     public function handle(string $entryId, array $fields): void;
 }

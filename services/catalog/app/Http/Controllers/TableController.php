@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\CatalogEvents;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,8 @@ use Mestaro\Kernel\Http\ApiError;
 /** Tables of the restaurant in the token. The QR token is only shown to people who can manage the floor. */
 final class TableController
 {
+    public function __construct(private readonly CatalogEvents $events) {}
+
     public function index(Request $request): JsonResponse
     {
         $rows = $this->tables()->orderBy('z.sort_order')->orderBy('t.label')->get();
@@ -33,15 +36,19 @@ final class TableController
 
         $id = strtolower((string) Str::ulid());
         try {
-            DB::transaction(fn () => DB::table('tables')->insert([
-                'public_id' => $id, 'zone_id' => $zone, 'label' => $data['label'], 'capacity' => $data['capacity'],
-                'qr_token' => self::newQrToken(), 'created_at' => now(), 'updated_at' => now(),
-            ]));
+            $table = DB::transaction(function () use ($id, $zone, $data, $request) {
+                DB::table('tables')->insert([
+                    'public_id' => $id, 'zone_id' => $zone, 'label' => $data['label'], 'capacity' => $data['capacity'],
+                    'qr_token' => self::newQrToken(), 'created_at' => now(), 'updated_at' => now(),
+                ]);
+
+                return $this->publish($id, $request);
+            });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('TABLE_LABEL_TAKEN', 'A table with that label already exists.', 409);
         }
 
-        return response()->json(['data' => $this->present($this->tables()->where('t.public_id', $id)->first(), $request)], 201);
+        return response()->json(['data' => $table], 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -63,24 +70,42 @@ final class TableController
         }
 
         try {
-            DB::transaction(fn () => DB::table('tables')->where('public_id', $id)->update([...$data, 'updated_at' => now()]));
+            $table = DB::transaction(function () use ($id, $data, $request) {
+                DB::table('tables')->where('public_id', $id)->update([...$data, 'updated_at' => now()]);
+
+                return $this->publish($id, $request);
+            });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('TABLE_LABEL_TAKEN', 'A table with that label already exists.', 409);
         }
 
-        return response()->json(['data' => $this->present($this->tables()->where('t.public_id', $id)->first(), $request)]);
+        return response()->json(['data' => $table]);
     }
 
     /** The old QR stops working at once: only the new token resolves the table. */
     public function rotateQr(Request $request, string $id): JsonResponse
     {
         $id = strtolower($id);
-        $changed = DB::table('tables')->where('public_id', $id)->update(['qr_token' => self::newQrToken(), 'qr_rotated_at' => now(), 'updated_at' => now()]);
-        if ($changed === 0) {
-            return ApiError::response('NOT_FOUND', 'Table not found.', 404);
-        }
+        $table = DB::transaction(function () use ($id, $request) {
+            $changed = DB::table('tables')->where('public_id', $id)->update(['qr_token' => self::newQrToken(), 'qr_rotated_at' => now(), 'updated_at' => now()]);
 
-        return response()->json(['data' => $this->present($this->tables()->where('t.public_id', $id)->first(), $request)]);
+            return $changed === 0 ? null : $this->publish($id, $request);
+        });
+
+        return $table === null ? ApiError::response('NOT_FOUND', 'Table not found.', 404) : response()->json(['data' => $table]);
+    }
+
+    /**
+     * Records the change and returns the row as the API shows it. Every caller has floor.manage, so it carries the QR token.
+     *
+     * @return array<string, mixed>
+     */
+    private function publish(string $publicId, Request $request): array
+    {
+        $table = $this->present($this->tables()->where('t.public_id', $publicId)->first(), $request);
+        $this->events->changed('table', $table);
+
+        return $table;
     }
 
     /** 32 random bytes as 43 base64url characters (RF-TBL-02). */

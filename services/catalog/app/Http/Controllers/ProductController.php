@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\CatalogEvents;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,8 @@ final class ProductController
 
     private const MAX_PRICE = 100_000_000; // 1,000,000.00 in cents: rejects typos and overflow
 
+    public function __construct(private readonly CatalogEvents $events) {}
+
     public function index(Request $request): JsonResponse
     {
         $query = $this->products()->orderBy('c.sort_order')->orderBy('p.sort_order')->orderBy('p.name');
@@ -41,9 +44,13 @@ final class ProductController
         }
         $id = strtolower((string) Str::ulid());
 
-        DB::table('products')->insert([...$this->columns($data), 'public_id' => $id, 'category_id' => $category, 'created_at' => now(), 'updated_at' => now()]);
+        $product = DB::transaction(function () use ($data, $id, $category) {
+            DB::table('products')->insert([...$this->columns($data), 'public_id' => $id, 'category_id' => $category, 'created_at' => now(), 'updated_at' => now()]);
 
-        return response()->json(['data' => $this->one($id)], 201);
+            return $this->publish($id);
+        });
+
+        return response()->json(['data' => $product], 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -62,14 +69,26 @@ final class ProductController
             $columns['category_id'] = $category;
         }
 
-        DB::table('products')->where('public_id', $id)->update([...$columns, 'updated_at' => now()]);
+        $product = DB::transaction(function () use ($id, $columns) {
+            DB::table('products')->where('public_id', $id)->update([...$columns, 'updated_at' => now()]);
 
-        return response()->json(['data' => $this->one($id)]);
+            return $this->publish($id);
+        });
+
+        return response()->json(['data' => $product]);
     }
 
     public function destroy(string $id): JsonResponse
     {
-        $deleted = DB::table('products')->where('public_id', strtolower($id))->whereNull('deleted_at')->update(['deleted_at' => now(), 'updated_at' => now()]);
+        $id = strtolower($id);
+        $deleted = DB::transaction(function () use ($id) {
+            $deleted = DB::table('products')->where('public_id', $id)->whereNull('deleted_at')->update(['deleted_at' => now(), 'updated_at' => now()]);
+            if ($deleted !== 0) {
+                $this->publish($id);
+            }
+
+            return $deleted;
+        });
 
         return $deleted === 0 ? ApiError::response('NOT_FOUND', 'Product not found.', 404) : response()->json(null, 204);
     }
@@ -117,10 +136,18 @@ final class ProductController
         return $data;
     }
 
-    /** @return array<string, mixed> */
-    private function one(string $publicId): array
+    /**
+     * Records the product with its options as they are now. Call inside the transaction, after writing the
+     * product row: that row's lock keeps the events of one product in order.
+     *
+     * @return array<string, mixed>
+     */
+    public function publish(string $publicId): array
     {
-        return $this->presentAll($this->products()->where('p.public_id', $publicId)->get())[0];
+        $product = $this->presentAll($this->products()->where('p.public_id', $publicId)->get())[0] ?? ['id' => $publicId, 'deleted' => true];
+        $this->events->changed('product', $product);
+
+        return $product;
     }
 
     private function products(): Builder

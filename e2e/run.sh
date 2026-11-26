@@ -115,6 +115,12 @@ EXPECTED="tenant_${L1}_billing tenant_${L1}_catalog tenant_${L1}_operations tena
 check "one database per service exists for the tenant" test "$(tenant_dbs "$ID1")" = "$EXPECTED"
 check "a duplicated slug is refused" test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$G/api/v1/admin/restaurants" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"name":"Again","slug":"e2eone"}')" = 409
 
+step "catalog relays the events of each restaurant's own database"
+tenant_sql() { dc exec -T postgres psql -U postgres -d "tenant_${L1}_catalog" -tAc "$1"; }
+tenant_sql "insert into outbox (event_id, type, payload, occurred_at) values ('01E2EPROBE0000000000000000', 'E2EProbe', '{}', now())" >/dev/null
+for _ in $(seq 1 30); do [ "$(tenant_sql "select count(*) from outbox where published_at is null")" = 0 ] && break; sleep 1; done
+check "the tenant outbox was published" test "$(tenant_sql "select count(*) from outbox where published_at is not null")" = 1
+
 step "provisioning failure in one service, then a successful retry"
 dc exec -T postgres psql -U postgres -qc "ALTER ROLE billing NOCREATEDB" >/dev/null
 ID2=$(register "E2E Two" e2etwo)

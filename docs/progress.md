@@ -47,3 +47,11 @@ Hecho: identidad del personal (login con elección de restaurante, recuperación
 Pendiente de Fase 3: panel Filament de `catalog` (ADR-013: necesita un puente de autenticación JWT y la BD del restaurante por petición; se recomienda reevaluarlo frente a las pantallas Vue); tema Filament completo con tokens; servir `apps/web` desde el gateway; D-11 (animación de entrada, requiere autorización) y D-12 (objetivo LCP); evento del índice central de `qr_token` (Fase 4); listado y cancelación de invitaciones; recorte de re-codificación de fotos cuando haya extensión de imagen.
 
 Pantallas de trabajo (PR posteriores a #37): carta, salón, equipo, ajustes y aceptación de invitación en `apps/web`, probadas contra los servicios reales a 360, 768 y 1280 px. Sin hacer: página de restablecer contraseña (el correo ya enlaza a `/reset-password`), imagen del QR de mesa (llega con el cliente QR, Fase 4), edición de `preferences`, claves i18n (D-15: los textos están en el código) y revisión con lector de pantalla.
+
+## Fase 4 — avance
+
+Partición aprobada (2026-11-26): 4a eventos de `catalog`; 4b proyecciones en `operations`, índice central de `qr_token` y carga inicial; 4c sesiones de mesa, participantes, `join_code` y límites; 4d carta pública y pedidos (precios del servidor, `Idempotency-Key`, máquina de estados); 4e cliente QR. El carrito se guarda en el navegador del comensal.
+
+### 4a — eventos de catálogo
+
+`catalog` publica `CategoryChanged`, `ProductChanged`, `ZoneChanged` y `TableChanged` desde un `outbox` por restaurante (`events.md`). Al desplegar: `php artisan tenants:migrate` en `catalog`.

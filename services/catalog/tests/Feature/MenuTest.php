@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -108,15 +107,6 @@ it('lets any staff read the menu but only menu.manage write it', function () {
     $this->postJson("/api/v1/products/{$p['id']}/addons", ['name' => 'X'], $waiter)->assertForbidden();
     $this->postJson('/api/v1/zones', ['name' => 'Z'], staffOf(FLOOR_A, ['menu.manage']))->assertForbidden();
 });
-
-/** A real 1x1 PNG: the image extension is not installed, so fake()->image() is not available. */
-function pngUpload(string $name = 'photo.png'): File
-{
-    $path = tempnam(sys_get_temp_dir(), 'png');
-    file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
-
-    return new File($name, fopen($path, 'r'));
-}
 
 it('stores a product photo by its real type, serves it publicly and replaces or removes it', function () {
     Storage::fake('local');

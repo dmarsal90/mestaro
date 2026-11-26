@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\CatalogEvents;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Mestaro\Kernel\Http\ApiError;
 /** Menu categories of the restaurant in the token. Deactivated, never deleted: products keep pointing at them. */
 final class CategoryController
 {
+    public function __construct(private readonly CatalogEvents $events) {}
+
     public function index(): JsonResponse
     {
         return response()->json(['data' => DB::table('categories')->orderBy('sort_order')->orderBy('name')->get()->map($this->present(...))]);
@@ -25,12 +28,16 @@ final class CategoryController
         $id = strtolower((string) Str::ulid());
 
         try {
-            DB::transaction(fn () => DB::table('categories')->insert(['public_id' => $id, ...$data, 'created_at' => now(), 'updated_at' => now()]));
+            $category = DB::transaction(function () use ($id, $data) {
+                DB::table('categories')->insert(['public_id' => $id, ...$data, 'created_at' => now(), 'updated_at' => now()]);
+
+                return $this->publish($id);
+            });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('CATEGORY_NAME_TAKEN', 'A category with that name already exists.', 409);
         }
 
-        return response()->json(['data' => $this->present(DB::table('categories')->where('public_id', $id)->first())], 201);
+        return response()->json(['data' => $category], 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -45,12 +52,29 @@ final class CategoryController
         }
 
         try {
-            DB::transaction(fn () => DB::table('categories')->where('public_id', $id)->update([...$data, 'updated_at' => now()]));
+            $category = DB::transaction(function () use ($id, $data) {
+                DB::table('categories')->where('public_id', $id)->update([...$data, 'updated_at' => now()]);
+
+                return $this->publish($id);
+            });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('CATEGORY_NAME_TAKEN', 'A category with that name already exists.', 409);
         }
 
-        return response()->json(['data' => $this->present(DB::table('categories')->where('public_id', $id)->first())]);
+        return response()->json(['data' => $category]);
+    }
+
+    /**
+     * Records the change and returns the row as the API shows it.
+     *
+     * @return array<string, mixed>
+     */
+    private function publish(string $publicId): array
+    {
+        $row = $this->present(DB::table('categories')->where('public_id', $publicId)->first());
+        $this->events->changed('category', $row);
+
+        return $row;
     }
 
     /** @return array<string, mixed> */
