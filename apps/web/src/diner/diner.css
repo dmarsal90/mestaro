@@ -1,0 +1,17 @@
+@import '../styles/app.css';
+
+/* Phones on a table: every control of the shared components reaches the touch target (UI_UX_BRIEF §7). */
+input:not([type='checkbox']),
+[aria-label='Cerrar'] {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+}
+[role='radiogroup'] > div,
+[role='checkbox'] + label {
+  min-height: var(--touch-target);
+}
+[role='radiogroup'] label,
+[role='checkbox'] + label {
+  flex: 1;
+  padding-block: 0.625rem;
+}

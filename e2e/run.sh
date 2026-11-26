@@ -131,6 +131,26 @@ check "the QR resolves through the gateway" test "$(curl -fsS "$G/api/v1/public/
 DINER=$(curl -fsS -X POST "$G/api/v1/public/tables/$QR/sessions" | json 'd["data"]["participant_token"]')
 check "the diner gets a credential and waits for approval" test "$(curl -fsS "$G/api/v1/session" -H "Authorization: Bearer $DINER" | json 'd["data"]["session"]["status"]')" = pending_approval
 
+step "the diner orders and a waiter accepts"
+sql "tenant_${L1}_catalog" "insert into categories (public_id, name, created_at, updated_at) values ('01e2ecategory0000000000000', 'E2E', now(), now())" >/dev/null
+sql "tenant_${L1}_catalog" "insert into products (public_id, category_id, name, price, created_at, updated_at) select '01e2eproduct00000000000000', id, 'Cafe', 150, now(), now() from categories" >/dev/null
+dc exec -T catalog php artisan catalog:publish-state >/dev/null
+menu_price() { curl -fsS "$G/api/v1/session/menu" -H "Authorization: Bearer $DINER" | json 'd["data"]["categories"][0]["products"][0]["price"]' 2>/dev/null; }
+for _ in $(seq 1 30); do [ "$(menu_price)" = 150 ] && break; sleep 1; done
+check "the diner reads the menu" test "$(menu_price)" = 150
+# A restaurant admin without the invitation email: a second account, made a member of the first restaurant.
+printf '%s\n' "$PW" | dc exec -T platform php artisan platform:create-admin staff@example.test "E2E Staff" >/dev/null
+sql mestaro_platform "update users set is_platform_admin = false where email = 'staff@example.test'" >/dev/null
+sql mestaro_platform "insert into restaurant_user (restaurant_id, user_id, role_id, created_at, updated_at) select '$ID1', u.id, r.id, now(), now() from users u, roles r where u.email = 'staff@example.test' and r.key = 'restaurant_admin' and r.restaurant_id is null" >/dev/null
+STAFF=$(curl -fsS -X POST "$G/api/v1/auth/login" -H 'Content-Type: application/json' -d "{\"email\":\"staff@example.test\",\"password\":\"$PW\"}" | json 'd["data"]["access_token"]')
+SESSION=$(curl -fsS "$G/api/v1/sessions" -H "Authorization: Bearer $STAFF" | json 'd["data"][0]["id"]')
+check "the waiter approves the table" curl -fsS -X POST "$G/api/v1/sessions/$SESSION/approve" -H "Authorization: Bearer $STAFF"
+place() { curl -fsS -X POST "$G/api/v1/orders" -H "Authorization: Bearer $DINER" -H 'Content-Type: application/json' -H 'Idempotency-Key: e2e-order-1' -d '{"items":[{"product_id":"01e2eproduct00000000000000","quantity":2}]}' | json 'd["data"]["id"]+"|"+str(d["data"]["total"])'; }
+ORDER=$(place)
+check "the order is priced by the server" test "${ORDER#*|}" = 300
+check "repeating it returns the same order" test "$(place)" = "$ORDER"
+check "the waiter accepts it" test "$(curl -fsS -X POST "$G/api/v1/orders/${ORDER%|*}/accept" -H "Authorization: Bearer $STAFF" | json 'd["data"]["status"]')" = accepted
+
 step "provisioning failure in one service, then a successful retry"
 dc exec -T postgres psql -U postgres -qc "ALTER ROLE billing NOCREATEDB" >/dev/null
 ID2=$(register "E2E Two" e2etwo)

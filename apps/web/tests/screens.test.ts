@@ -221,3 +221,19 @@ describe('AcceptInvitationPage', () => {
     expect(w.find('[role=alert]').text()).toContain('incompleto')
   })
 })
+
+describe('FloorPage QR', () => {
+  it('draws the code of the address the diner opens', async () => {
+    stubFetch({
+      'GET /zones': { body: { data: [{ id: 'z1', name: 'Sala', sort_order: 0, is_active: true }] } },
+      'GET /tables': { body: { data: [{ id: 't1', zone_id: 'z1', label: '1', capacity: 4, is_active: true, qr_token: 'secret-token' }] } },
+    })
+    await open(FloorPage)
+
+    await click('Ver el QR de la mesa 1')
+    await vi.waitFor(() => expect(body().find('img').attributes('src')).toMatch(/^data:image\/svg\+xml,%3Csvg/))
+
+    expect(body().text()).toContain('/m/secret-token')
+    await expectAccessible(document.body)
+  })
+})

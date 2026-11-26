@@ -7,3 +7,9 @@ export type Product = {
   available_from: string | null; available_until: string | null; is_available: boolean; is_sold_out: boolean; sort_order: number
   variants: Variant[]; addons: Addon[]
 }
+
+// The 14 allergens of EU Regulation 1169/2011, with the keys the API accepts.
+export const allergens: Record<string, string> = {
+  gluten: 'Gluten', crustaceans: 'Crustáceos', eggs: 'Huevos', fish: 'Pescado', peanuts: 'Cacahuetes', soy: 'Soja', milk: 'Lácteos',
+  nuts: 'Frutos de cáscara', celery: 'Apio', mustard: 'Mostaza', sesame: 'Sésamo', sulphites: 'Sulfitos', lupin: 'Altramuces', molluscs: 'Moluscos',
+}

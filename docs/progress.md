@@ -75,3 +75,9 @@ Al desplegar: `php artisan tenants:migrate` en `operations` y `php artisan platf
 Decisiones: el comensal lee sus pedidos en `GET /session/orders` (los de toda la mesa), así `/orders` queda solo para el personal salvo el `POST`; el impuesto se redondea por línea (mitad hacia arriba); sin variante elegida se usa la de defecto; los límites son 50 líneas, 50 unidades por línea y 20 extras distintos.
 
 Al desplegar: `php artisan tenants:migrate` en `operations`. Los restaurantes que no hayan cambiado ajustes usan los valores por defecto de `platform`. Pendiente: estados por artículo y etiqueta de progreso, pedidos desde TPV, eventos y tiempo real, limpieza de claves de idempotencia.
+
+### 4e — cliente QR y pantalla de sala
+
+`apps/web`: segunda entrada de Vite (`diner.html`, URL `/m/{qr_token}`) con apertura e incorporación, carta, carrito en el navegador y estado de los pedidos; pantalla «Sala» para aprobar mesas y aceptar, rechazar o cancelar pedidos; QR descargable desde «Salón» (dependencia `qrcode`). Sin tiempo real: se consulta cada 10 s. `e2e/run.sh` recorre de la mesa al pedido aceptado.
+
+Al desplegar: el servidor web debe responder `diner.html` en `/m/*`; el QR apunta al mismo origen que la app del personal. Pendiente: servir `apps/web` desde el gateway (necesario antes de imprimir QR), logo y color del restaurante, animación de entrada, aviso al personal de pedidos nuevos y revisión con lector de pantalla. Si se pierde la respuesta de un pedido y el comensal cambia el carrito antes de reintentar, las líneas ya enviadas se piden dos veces (el pedido anterior aparece en la lista).
