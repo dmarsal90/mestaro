@@ -2,15 +2,15 @@
 
 namespace App\Providers;
 
+use App\Infrastructure\Messaging\ProjectCatalog;
 use Illuminate\Support\ServiceProvider;
 use Mestaro\Kernel\Messaging\EventHandler;
-use Mestaro\Kernel\Tenancy\ProvisionTenantOnRegistered;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // This service's only reaction to events so far: provision its own database for each new restaurant.
-        $this->app->bind(EventHandler::class, ProvisionTenantOnRegistered::class);
+        // Projects catalog's events and hands the rest (TenantRegistered) to tenant provisioning.
+        $this->app->bind(EventHandler::class, ProjectCatalog::class);
     }
 }

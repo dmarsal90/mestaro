@@ -69,7 +69,7 @@ final class CategoryController
      *
      * @return array<string, mixed>
      */
-    private function publish(string $publicId): array
+    public function publish(string $publicId): array
     {
         $row = $this->present(DB::table('categories')->where('public_id', $publicId)->first());
         $this->events->changed('category', $row);

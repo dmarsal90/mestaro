@@ -64,7 +64,7 @@ final class ZoneController
      *
      * @return array<string, mixed>
      */
-    private function publish(string $publicId): array
+    public function publish(string $publicId): array
     {
         $row = $this->present(DB::table('zones')->where('public_id', $publicId)->first());
         $this->events->changed('zone', $row);

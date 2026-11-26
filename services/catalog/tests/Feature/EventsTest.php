@@ -111,3 +111,21 @@ it('keeps relaying the other restaurants when one database is unreachable', func
 
     expect(Redis::xlen(config('events.stream')))->toBe(1);
 });
+
+it('republishes the current state of every restaurant for new projections', function () {
+    $zone = post_('zones', ['name' => 'Terraza']);
+    $table = post_('tables', ['zone_id' => $zone['id'], 'label' => 'M1', 'capacity' => 4]);
+    $category = post_('categories', ['name' => 'Bebidas']);
+    $product = post_('products', ['category_id' => $category['id'], 'name' => 'Rioja', 'price' => 1200]);
+    $this->deleteJson("/api/v1/products/{$product['id']}", [], staffOf(FLOOR_A))->assertNoContent();
+    $this->postJson('/api/v1/zones', ['name' => 'Salón'], staffOf(FLOOR_B))->assertCreated();
+    $before = count(outboxOf(FLOOR_A));
+
+    $this->artisan('catalog:publish-state')->assertSuccessful();
+
+    $again = array_slice(outboxOf(FLOOR_A), $before);
+    expect(array_column($again, 0))->toBe(['CategoryChanged', 'ZoneChanged', 'ProductChanged', 'TableChanged'])
+        ->and($again[2][1]['product'])->toBe(['id' => $product['id'], 'deleted' => true])
+        ->and($again[3][1]['table']['qr_token'])->toBe($table['qr_token'])
+        ->and(outboxOf(FLOOR_B))->toHaveCount(2);
+});

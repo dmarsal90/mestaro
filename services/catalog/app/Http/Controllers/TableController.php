@@ -21,7 +21,7 @@ final class TableController
     {
         $rows = $this->tables()->orderBy('z.sort_order')->orderBy('t.label')->get();
 
-        return response()->json(['data' => $rows->map(fn ($t) => $this->present($t, $request))]);
+        return response()->json(['data' => $rows->map(fn ($t) => $this->present($t, $this->canManage($request)))]);
     }
 
     public function store(Request $request): JsonResponse
@@ -36,13 +36,13 @@ final class TableController
 
         $id = strtolower((string) Str::ulid());
         try {
-            $table = DB::transaction(function () use ($id, $zone, $data, $request) {
+            $table = DB::transaction(function () use ($id, $zone, $data) {
                 DB::table('tables')->insert([
                     'public_id' => $id, 'zone_id' => $zone, 'label' => $data['label'], 'capacity' => $data['capacity'],
                     'qr_token' => self::newQrToken(), 'created_at' => now(), 'updated_at' => now(),
                 ]);
 
-                return $this->publish($id, $request);
+                return $this->publish($id);
             });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('TABLE_LABEL_TAKEN', 'A table with that label already exists.', 409);
@@ -70,10 +70,10 @@ final class TableController
         }
 
         try {
-            $table = DB::transaction(function () use ($id, $data, $request) {
+            $table = DB::transaction(function () use ($id, $data) {
                 DB::table('tables')->where('public_id', $id)->update([...$data, 'updated_at' => now()]);
 
-                return $this->publish($id, $request);
+                return $this->publish($id);
             });
         } catch (UniqueConstraintViolationException) {
             return ApiError::response('TABLE_LABEL_TAKEN', 'A table with that label already exists.', 409);
@@ -83,29 +83,37 @@ final class TableController
     }
 
     /** The old QR stops working at once: only the new token resolves the table. */
-    public function rotateQr(Request $request, string $id): JsonResponse
+    public function rotateQr(string $id): JsonResponse
     {
         $id = strtolower($id);
-        $table = DB::transaction(function () use ($id, $request) {
+        $table = DB::transaction(function () use ($id) {
             $changed = DB::table('tables')->where('public_id', $id)->update(['qr_token' => self::newQrToken(), 'qr_rotated_at' => now(), 'updated_at' => now()]);
 
-            return $changed === 0 ? null : $this->publish($id, $request);
+            return $changed === 0 ? null : $this->publish($id);
         });
 
         return $table === null ? ApiError::response('NOT_FOUND', 'Table not found.', 404) : response()->json(['data' => $table]);
     }
 
     /**
-     * Records the change and returns the row as the API shows it. Every caller has floor.manage, so it carries the QR token.
+     * Records the change and returns the row as someone with floor.manage sees it, QR token included.
      *
      * @return array<string, mixed>
      */
-    private function publish(string $publicId, Request $request): array
+    public function publish(string $publicId): array
     {
-        $table = $this->present($this->tables()->where('t.public_id', $publicId)->first(), $request);
+        $table = $this->present($this->tables()->where('t.public_id', $publicId)->first(), true);
         $this->events->changed('table', $table);
 
         return $table;
+    }
+
+    private function canManage(Request $request): bool
+    {
+        /** @var AccessClaims $claims */
+        $claims = $request->attributes->get('claims');
+
+        return in_array('floor.manage', $claims->permissions, true);
     }
 
     /** 32 random bytes as 43 base64url characters (RF-TBL-02). */
@@ -126,12 +134,10 @@ final class TableController
     }
 
     /** @return array<string, mixed> */
-    private function present(object $t, Request $request): array
+    private function present(object $t, bool $withQr): array
     {
-        /** @var AccessClaims $claims */
-        $claims = $request->attributes->get('claims');
         $row = ['id' => $t->public_id, 'zone_id' => $t->zone_id, 'label' => $t->label, 'capacity' => $t->capacity, 'is_active' => (bool) $t->is_active];
 
-        return in_array('floor.manage', $claims->permissions, true) ? [...$row, 'qr_token' => $t->qr_token, 'qr_rotated_at' => $t->qr_rotated_at] : $row;
+        return $withQr ? [...$row, 'qr_token' => $t->qr_token, 'qr_rotated_at' => $t->qr_rotated_at] : $row;
     }
 }

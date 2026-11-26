@@ -38,6 +38,14 @@ Reglas para quien consuma:
 
 - Aplicar un evento solo si su `sequence` es mayor que la guardada para esa fila de ese restaurante: la entrega puede repetirse o desordenarse. `sequence` no se compara entre restaurantes ni entre servicios.
 - Una entidad no incluye el estado de otra: desactivar una categoría o una zona no reemite sus productos o mesas.
-- Los datos anteriores a estos eventos no se han publicado (la carga inicial llega con las proyecciones).
+- `php artisan catalog:publish-state` (en `catalog`) vuelve a publicar el estado actual de todos los restaurantes: carga inicial de una proyección o reparación. Se puede repetir.
 
-**Despliegue:** ejecutar `php artisan tenants:migrate` en `catalog` antes de servir tráfico: los restaurantes ya provisionados necesitan la tabla `outbox`.
+### Proyecciones en `operations`
+
+El consumidor de `operations` guarda cada estado en `catalog_projection` (base de datos del restaurante) y, para las mesas, el hash del `qr_token` en el índice central `qr_tokens` (restaurante y mesa). El token en claro no se almacena. Un evento de un restaurante que `operations` no ha provisionado queda pendiente y acaba en el stream de descartados.
+
+**Despliegue**, en este orden:
+
+1. `operations`: `php artisan migrate` y `php artisan tenants:migrate`; reiniciar su consumidor.
+2. `catalog`: `php artisan tenants:migrate`; reiniciar su relay.
+3. `catalog`: `php artisan catalog:publish-state`.
