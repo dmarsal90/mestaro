@@ -73,3 +73,17 @@ it('rejects invalid values', function (array $body) {
     'flag' => [['auto_accept_orders' => 'maybe']],
     'big preferences' => [['preferences' => ['x' => str_repeat('a', 9000)]]],
 ]);
+
+it('announces the settings to the other services after each change, and again on request', function () {
+    $this->patchJson('/api/v1/settings', ['require_waiter_approval_for_session' => false], settingsAuth('manager'))->assertOk();
+    $this->patchJson('/api/v1/settings', ['currency' => 'nope'], settingsAuth('restaurant_admin'))->assertStatus(422);
+
+    $events = fn () => DB::table('outbox')->where('type', 'SettingsChanged')->orderBy('id')->get()->map(fn ($r) => json_decode($r->payload, true));
+    expect($events())->toHaveCount(1)
+        ->and($events()[0]['tenant_id'])->toBe(ALFA)
+        ->and($events()[0]['settings'])->toMatchArray(['id' => ALFA, 'require_waiter_approval_for_session' => false, 'currency' => 'EUR']);
+
+    $this->artisan('platform:publish-settings')->assertSuccessful();
+
+    expect($events())->toHaveCount(2)->and($events()[1]['settings']['require_waiter_approval_for_session'])->toBeFalse();
+});
