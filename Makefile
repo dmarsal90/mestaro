@@ -1,4 +1,4 @@
-# Everything runs in containers. Usage: make up | down | sh s=platform | art s=platform c="migrate" | test s=platform | e2e
+# Everything runs in containers. Usage: make web | up | down | sh s=platform | art s=platform c="migrate" | test s=platform | e2e
 s ?= platform
 DC = docker compose
 
@@ -10,4 +10,5 @@ art:   ; $(DC) exec $(s) php artisan $(c)
 comp:  ; $(DC) exec $(s) composer $(c)
 test:  ; $(DC) exec -e APP_ENV=testing $(s) vendor/bin/pest $(a) # testing, as in CI (compose sets local; some libraries, e.g. Filament, only act in testing)
 e2e:   ; bash e2e/run.sh
+web:   ; cd apps/web && npm ci && npm run build # the gateway serves apps/web/dist; needs Node on the host
 lint:  ; $(DC) exec $(s) sh -c 'vendor/bin/pint --test && vendor/bin/phpstan analyse --memory-limit=1G'
