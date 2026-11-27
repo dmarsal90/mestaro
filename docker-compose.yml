@@ -235,6 +235,7 @@ services:
     volumes:
       - ./docker/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
       - ./services/platform/public:/var/www/platform-public:ro # Filament's published assets
+      - ./apps/web:/var/www/web:ro # only dist/ is served; the parent is mounted so a missing build is not created as root
     depends_on: [platform, catalog, operations, billing]
     networks: [internal, edge]
 

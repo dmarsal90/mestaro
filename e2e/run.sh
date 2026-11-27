@@ -2,7 +2,8 @@
 # End-to-end check of the whole stack through the gateway, in its own throwaway Compose project
 # (own volumes, subnet, ports and random secrets): it never touches the development stack or its Redis stream.
 #
-# Needs: docker compose, curl, python3, and `composer install` already done in every services/* directory.
+# Needs: docker compose, curl, python3, `composer install` already done in every services/* directory
+# and the web app built (make web).
 # Usage: bash e2e/run.sh      Debug a failure: KEEP=1 bash e2e/run.sh (leaves the project up; remove it with
 #        docker compose -p mestaro-e2e down -v)
 set -euo pipefail
@@ -45,6 +46,7 @@ step "preconditions"
 for s in "${SERVICES[@]}"; do
     [ -f "services/$s/vendor/autoload.php" ] || { echo "services/$s/vendor is missing: run composer install there first."; exit 2; }
 done
+[ -f apps/web/dist/diner.html ] || { echo "apps/web/dist is missing: run make web first."; exit 2; }
 command -v python3 >/dev/null && command -v curl >/dev/null || { echo "curl and python3 are required."; exit 2; }
 
 step "build the image and generate throwaway secrets"
@@ -170,5 +172,14 @@ UNKNOWN=$(curl -s -w '\n%{http_code}' "$G/api/v1/nonexistent")
 check "an unknown prefix is answered by the gateway, not a service" test "$(echo "$UNKNOWN" | tail -1)" = 404 -a "$(echo "$UNKNOWN" | grep -c '"error"')" = 0
 check "security headers are present" test -n "$(curl -sI "$G/api/v1/zones" | grep -i '^x-content-type-options: nosniff')"
 check "the JWKS endpoint serves a key" test "$(curl -fsS "$G/.well-known/jwks.json" | json 'len(d["keys"])')" = 1
+
+step "the gateway serves the web app"
+title() { curl -fsS "$G$1" | grep -o '<title>.*</title>'; }
+check "a table's QR address opens the diner's app" test "$(title "/m/$QR")" = '<title>Tu mesa · Mestaro</title>'
+check "a staff deep link opens the staff app" test "$(title /sala)" = '<title>Mestaro</title>'
+check "the web app keeps the security headers" test -n "$(curl -sI "$G/m/$QR" | grep -i '^x-frame-options: deny')"
+ASSET=$(curl -fsS "$G/" | grep -o '/assets/[^"]*\.js' | head -1)
+check "a built asset is served and cacheable" test -n "$(curl -fsSI "$G$ASSET" | grep -i '^cache-control: max-age=31536000')"
+check "a missing asset is a 404, not the app" test "$(curl -s -o /dev/null -w '%{http_code}' "$G/assets/missing.js")" = 404
 
 if [ "$FAILED" -eq 0 ]; then printf '\nE2E PASSED\n'; else printf '\nE2E FAILED\n'; fi

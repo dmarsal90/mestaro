@@ -94,5 +94,12 @@ jobs:
           for service in platform catalog operations billing; do
             (cd "services/$service" && touch .env && composer install --no-interaction --prefer-dist --no-progress)
           done
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Build the web app the gateway serves
+        run: cd apps/web && npm ci && npm run build
       # shortcut: the image is built without a layer cache (a few minutes); add buildx cache if CI time matters.
       - run: bash e2e/run.sh
